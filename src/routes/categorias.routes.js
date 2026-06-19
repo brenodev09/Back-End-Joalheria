@@ -67,6 +67,7 @@ router.post("/", upload.single("imagem"), async (req, res) => {
 
 
 
+// metodo de deletar as categorias
 router.delete("/:id", async (req, res) => {
     try {
         const { id } = req.params
@@ -93,5 +94,61 @@ router.delete("/:id", async (req, res) => {
     }
 })
 
+
+
+// metodo de editar a categoria
+router.put("/:id", upload.single("imagem"), async (req, res) => {
+    try {
+        const { id } = req.params
+        const { nome, descricao, ativo } = req.body
+
+        if (!nome || !descricao || ativo === undefined) {
+            return res.status(400).json({
+                erro: "Nome, descrição e status são obrigatórios"
+            })
+        }
+
+        const ativoConvertido = ativo === "true" || ativo === true ? 1 : 0
+
+        let sql
+        let parametros
+
+        // só atualiza a imagem se o usuário enviou um arquivo novo
+        if (req.file) {
+            const imagem = `/uploads/${req.file.filename}`
+
+            sql = `update categorias set nome = ?, descricao = ?, ativo = ?, imagem = ?,
+                atualizado_em = CURRENT_TIMESTAMP where id = ?`
+            parametros = [nome, descricao, ativoConvertido, imagem, id]
+        } else {
+            sql = `update categorias set nome = ?, descricao = ?, ativo = ?,
+                atualizado_em = CURRENT_TIMESTAMP where id = ?`
+            parametros = [nome, descricao, ativoConvertido, id]
+        }
+
+        const [resultado] = await db.query(sql, parametros)
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({
+                erro: "Item não encontrado.",
+            });
+        }
+
+        const [categoriaAtualizada] = await db.query(
+            `select id, nome, descricao, imagem, ativo, criado_em, atualizado_em
+             from categorias where id = ?`,
+            [id]
+        )
+
+        return res.json(categoriaAtualizada[0])
+
+    } catch (error) {
+        console.error(error)
+
+        return res.status(500).json({
+            erro: "Erro ao atualizar categoria."
+        })
+    }
+})
 
 export default router
