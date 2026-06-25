@@ -2,7 +2,7 @@ import express from "express"
 
 // import itensRoutes from "../routes/itens.routes.js"
 import categoriasRoutes from "../routes/categorias.routes.js"
-// import usuariosRoutes from "../routes/usuarios.routes.js"
+import usuariosRoutes from "../routes/usuarios.routes.js"
 
 const routes = express.Router()
 
@@ -14,6 +14,6 @@ routes.get("/", (req,res) => {
 
 // routes.use("/itens", itensRoutes)
 routes.use("/categorias", categoriasRoutes)
-// routes.use("/usuarios", usuariosRoutes)
+routes.use("/usuarios", usuariosRoutes)
 
 export default routes
