@@ -100,9 +100,9 @@ router.post("/", async (req, res) => {
 
 router.post("/login", async (req, res) =>{
     try{
-        const {nome, email, senha} = req.body
+        const { email, senha} = req.body
 
-        if(!nome || !email || !senha) {
+        if(!email || !senha) {
             return res.status(400).json({
                 erro:"Email e senha são obrigatórios"
             })
@@ -126,14 +126,14 @@ router.post("/login", async (req, res) =>{
             })
         }
 
-        // const { id, nome } = usuario;
-        const token = jwt.sign({id, nome, email}, process.env.JWT_SECRET, {expiresIn: "1d"}) 
+        const { id, nome, tipo, criado_em, atualizado_em} = usuario;
+        const token = jwt.sign({id,nome, email, tipo}, process.env.JWT_SECRET, {expiresIn: "1d"}) 
 
         return res.json({
             mensagem:"Login realizado com sucesso!",
             token, 
             usuario:{
-                id, nome, email
+                id,nome, email, tipo, criado_em, atualizado_em
             }
         })
 
@@ -143,6 +143,53 @@ router.post("/login", async (req, res) =>{
 
         return res.status(500).json({
             erro:"Erro ao fazer login. Por favor, tente novamente!"
+        })
+    }
+})
+
+
+router.put("/:id", autenticarToken, async (req, res) =>{
+    try{
+        const {id} = req.params
+        const {nome, email, senha} = req.body
+
+        if(!nome || !email ) {
+            return res.status(400).json({
+                mensagem:"Nome ou email são obrigatórios para atualizar o usuário"
+             })
+        }
+
+        let sql
+        let parametros
+
+        if(senha) {
+            const senhaCriptografada = await bcrypt.hash(senha, 15)
+
+             sql = `update usuarios set nome = ?, email = ?, senha = ?, atualizado_em = CURRENT_TIMESTAMP where id = ?`
+             parametros = [nome,email,senhaCriptografada,id]
+        } else{
+             sql = `update usuarios set nome = ?, email = ?, atualizado_em = CURRENT_TIMESTAMP where id = ?`
+             parametros = [nome,email,id]
+        }
+
+
+        const [resultadoUser] = await pool.query(sql,parametros)
+
+        if(resultadoUser.affectedRows === 0 ){
+            return res.status(400).json({
+                erro:"Usuário não encontrado, por favor tente novamente!"
+            })
+        }
+
+        const [usuarioEditado] = await pool.query(`select nome, email, criado_em, atualizado_em from usuarios where id =?`, [id]) 
+
+        return res.json(usuarioEditado[0])
+
+    } catch (error){
+        console.error(error)
+
+        return res.status(500).json({
+            erro:"Erro ao atualizar usuário."
         })
     }
 })
