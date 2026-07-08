@@ -3,7 +3,8 @@ import bcrypt from "bcrypt"
 import pool from "../database.js"
 import jwt from "jsonwebtoken"
 import { autenticarToken } from "../middlewares/autenticacao.js"
-
+import upload from "../../config/multer.js"
+ 
 const router = express.Router()
 
 router.get("/", autenticarToken, async (req, res) => {
@@ -126,14 +127,14 @@ router.post("/login", async (req, res) =>{
             })
         }
 
-        const { id, nome, tipo, criado_em, atualizado_em} = usuario;
+        const { id, nome, tipo, criado_em, atualizado_em, foto_perfil} = usuario;
         const token = jwt.sign({id,nome, email, tipo}, process.env.JWT_SECRET, {expiresIn: "1d"}) 
 
         return res.json({
             mensagem:"Login realizado com sucesso!",
             token, 
             usuario:{
-                id,nome, email, tipo, criado_em, atualizado_em
+                id,nome, email, tipo, criado_em, atualizado_em, foto_perfil
             }
         })
 
@@ -148,6 +149,7 @@ router.post("/login", async (req, res) =>{
 })
 
 
+// editar usuario
 router.put("/:id", autenticarToken, async (req, res) =>{
     try{
         const {id} = req.params
@@ -193,6 +195,41 @@ router.put("/:id", autenticarToken, async (req, res) =>{
         })
     }
 })
+
+
+router.put( "/:id/foto", autenticarToken, upload.single("foto"), async (req, res) => {
+        try {
+            const { id } = req.params
+
+            if (!req.file) {
+                return res.status(400).json({
+                    erro: "Nenhuma imagem enviada"
+                })
+            }
+
+            const caminhoFoto = `/uploads/${req.file.filename}`
+
+            await pool.query(
+                `UPDATE usuarios
+                 SET foto_perfil = ?
+                 WHERE id = ?`,
+                [caminhoFoto, id]
+            )
+
+            return res.json({
+                mensagem: "Foto atualizada com sucesso",
+                foto_perfil: caminhoFoto
+            })
+
+        } catch (error) {
+            console.error(error)
+
+            return res.status(500).json({
+                erro: "Erro ao atualizar foto"
+            })
+        }
+    }
+)
 
 
 export default router
