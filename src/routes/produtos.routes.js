@@ -39,6 +39,9 @@ router.get("/", async (req, res) => {
 // CADASTRAR PRODUTO
 router.post("/", upload.single("imagem"), async (req, res) => {
 
+    console.log(req.body)
+    console.log(req.file)
+
     try {
 
         const {
@@ -50,7 +53,8 @@ router.post("/", upload.single("imagem"), async (req, res) => {
             localizacao,
             categoria_id,
             material_id,
-            ativo
+            ativo,
+            destaque
         } = req.body
 
         if (!nome || !preco) {
@@ -65,6 +69,7 @@ router.post("/", upload.single("imagem"), async (req, res) => {
 
         const ativoConvertido =
             ativo === "true" || ativo === true ? 1 : 0
+            const destaqueConvertido = destaque === "true" || destaque === true ? 1 : 0
 
         const sql = `
             INSERT INTO produtos
@@ -78,9 +83,10 @@ router.post("/", upload.single("imagem"), async (req, res) => {
                 categoria_id,
                 material_id,
                 ativo,
-                imagem
+                imagem,
+                destaque
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
         `
 
         const [resultado] = await db.query(sql, [
@@ -93,7 +99,8 @@ router.post("/", upload.single("imagem"), async (req, res) => {
             categoria_id || null,
             material_id || null,
             ativoConvertido,
-            imagem
+            imagem,
+            destaqueConvertido
         ])
 
         const [produtoCriado] = await db.query(
@@ -172,11 +179,14 @@ router.put("/:id", upload.single("imagem"), async (req, res) => {
             localizacao,
             categoria_id,
             material_id,
-            ativo
+            ativo,
+            destaque
         } = req.body
 
         const ativoConvertido =
             ativo === "true" || ativo === true ? 1 : 0
+        const destaqueConvertido = destaque === "true" || destaque === true ? 1 : 0
+
 
         let sql
         let parametros
@@ -197,7 +207,9 @@ router.put("/:id", upload.single("imagem"), async (req, res) => {
                     categoria_id = ?,
                     material_id = ?,
                     ativo = ?,
+                    destaque = ?,
                     imagem = ?
+                    
                 WHERE id = ?
             `
 
@@ -211,6 +223,7 @@ router.put("/:id", upload.single("imagem"), async (req, res) => {
                 categoria_id,
                 material_id,
                 ativoConvertido,
+                destaqueConvertido,
                 imagem,
                 id
             ]
@@ -228,7 +241,8 @@ router.put("/:id", upload.single("imagem"), async (req, res) => {
                     localizacao = ?,
                     categoria_id = ?,
                     material_id = ?,
-                    ativo = ?
+                    ativo = ?,
+                    destaque = ?
                 WHERE id = ?
             `
 
@@ -242,6 +256,7 @@ router.put("/:id", upload.single("imagem"), async (req, res) => {
                 categoria_id,
                 material_id,
                 ativoConvertido,
+                destaqueConvertido,
                 id
             ]
 
@@ -276,6 +291,27 @@ router.put("/:id", upload.single("imagem"), async (req, res) => {
 
     }
 
+})
+
+
+// produtos em destaque 
+
+router.get("/destaques", async (req, res) =>{
+    try{
+        const [produtos] = await db.query(`
+            SELECT p.*, c.nome as categoria from produtos p 
+            LEFT JOIN categorias c ON p.categoria_id = c.id
+            where p.destaque = true and p.ativo = true 
+            LIMIT 8 `)
+
+        res.json(produtos)
+
+    } catch(error){
+        console.log(error)
+        res.status(500).json({
+            erro:"Erro ao exibir os produtos em destaque"
+        })
+    }
 })
 
 export default router
