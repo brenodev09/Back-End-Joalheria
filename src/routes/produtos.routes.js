@@ -36,6 +36,50 @@ router.get("/", async (req, res) => {
     }
 })
 
+// produtos em destaque 
+
+router.get("/destaques", async (req, res) =>{
+    try{
+        const [produtos] = await db.query(`
+            SELECT p.*, c.nome as categoria from produtos p 
+            LEFT JOIN categorias c ON p.categoria_id = c.id
+            where p.destaque = true and p.ativo = true 
+            LIMIT 8 `)
+
+        res.json(produtos)
+
+    } catch(error){
+        console.log(error)
+        res.status(500).json({
+            erro:"Erro ao exibir os produtos em destaque"
+        })
+    }
+})
+
+
+router.get("/:id", async (req,res) => {
+    try{
+        const {id} = req.params
+
+        const [produto] = await db.query("SELECT * from produtos where id = ? ", [id])
+
+           if (produto.length === 0) {
+            return res.status(404).json({
+                erro: "Produto não encontrado."
+            });
+        }
+
+
+        res.json(produto[0])
+    } catch(error) {
+        console.error(error)
+
+        return res.status(500).json({
+            erro:"Erro ao buscar o produto, por favor tente novamente!"
+        })
+    }
+})
+
 // CADASTRAR PRODUTO
 router.post("/", upload.single("imagem"), async (req, res) => {
 
@@ -294,24 +338,5 @@ router.put("/:id", upload.single("imagem"), async (req, res) => {
 })
 
 
-// produtos em destaque 
-
-router.get("/destaques", async (req, res) =>{
-    try{
-        const [produtos] = await db.query(`
-            SELECT p.*, c.nome as categoria from produtos p 
-            LEFT JOIN categorias c ON p.categoria_id = c.id
-            where p.destaque = true and p.ativo = true 
-            LIMIT 8 `)
-
-        res.json(produtos)
-
-    } catch(error){
-        console.log(error)
-        res.status(500).json({
-            erro:"Erro ao exibir os produtos em destaque"
-        })
-    }
-})
 
 export default router
