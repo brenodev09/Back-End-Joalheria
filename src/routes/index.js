@@ -6,6 +6,7 @@ import usuariosRoutes from "../routes/usuarios.routes.js"
 import materiaisRoutes from "./materiais.routes.js"
 import produtosRoutes from "./produtos.routes.js"
 import dashboardRoutes from "./dashboard.routes.js"
+import carrinhoRoutes from "./carrinho.routes.js";
 
 
 const routes = express.Router()
@@ -21,6 +22,7 @@ routes.use("/categorias", categoriasRoutes)
 routes.use("/usuarios", usuariosRoutes)
 routes.use("/materiais", materiaisRoutes)
 routes.use("/produtos", produtosRoutes)
+routes.use("/carrinho", carrinhoRoutes);
 routes.use("/dashboard", dashboardRoutes)
 
 export default routes

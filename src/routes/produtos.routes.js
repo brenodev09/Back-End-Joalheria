@@ -1,342 +1,591 @@
-import express from "express"
-import db from "../database.js"
-import upload from "../../config/multer.js"
+import express from "express";
+import db from "../database.js";
+import upload from "../../config/multer.js";
 
-const router = express.Router()
+const router = express.Router();
 
-// LISTAR PRODUTOS
-router.get("/", async (req, res) => {
-    try {
 
-        const sql = `
+// ======================================================
+// LISTAR TODOS OS PRODUTOS
+// GET /produtos
+// ======================================================
+
+router.get("/", async (req,res)=>{
+
+    try{
+
+        const [produtos] = await db.query(
+            `
             SELECT
                 p.*,
                 c.nome AS categoria,
                 m.nome AS material
+
             FROM produtos p
+
             LEFT JOIN categorias c
-                ON p.categoria_id = c.id
+            ON c.id = p.categoria_id
+
             LEFT JOIN materiais m
-                ON p.material_id = m.id
+            ON m.id = p.material_id
+
             ORDER BY p.id DESC
-        `
+            `
+        );
 
-        const [produtos] = await db.query(sql)
 
-        return res.json(produtos)
+        res.json(produtos);
 
-    } catch (error) {
 
-        console.error(error)
+    }catch(error){
 
-        return res.status(500).json({
-            erro: "Erro ao listar produtos"
-        })
+        console.error(error);
 
-    }
-})
-
-// produtos em destaque 
-
-router.get("/destaques", async (req, res) =>{
-    try{
-        const [produtos] = await db.query(`
-            SELECT p.*, c.nome as categoria from produtos p 
-            LEFT JOIN categorias c ON p.categoria_id = c.id
-            where p.destaque = true and p.ativo = true 
-            LIMIT 8 `)
-
-        res.json(produtos)
-
-    } catch(error){
-        console.log(error)
         res.status(500).json({
-            erro:"Erro ao exibir os produtos em destaque"
-        })
-    }
-})
+            erro:"Erro ao listar produtos"
+        });
 
+    }
+
+});
+
+
+
+
+// ======================================================
+// PRODUTOS EM DESTAQUE
+// GET /produtos/destaques
+// ======================================================
+
+router.get("/destaques", async(req,res)=>{
+
+    try{
+
+
+        const [produtos] = await db.query(
+            `
+            SELECT 
+                p.*,
+                c.nome AS categoria
+
+            FROM produtos p
+
+            LEFT JOIN categorias c
+            ON c.id = p.categoria_id
+
+            WHERE p.destaque = true
+            AND p.ativo = true
+
+            LIMIT 8
+            `
+        );
+
+
+        res.json(produtos);
+
+
+    }catch(error){
+
+        console.error(error);
+
+        res.status(500).json({
+            erro:"Erro ao buscar destaques"
+        });
+
+    }
+
+});
+
+
+
+
+
+// ======================================================
+// BUSCAR PRODUTO COMPLETO
+// GET /produtos/:id
+// ======================================================
 
 router.get("/:id", async (req,res) => {
-    try{
-        const {id} = req.params
-
-        const [produto] = await db.query("SELECT * from produtos where id = ? ", [id])
-
-           if (produto.length === 0) {
-            return res.status(404).json({
-                erro: "Produto não encontrado."
-            });
-        }
-
-
-        res.json(produto[0])
-    } catch(error) {
-        console.error(error)
-
-        return res.status(500).json({
-            erro:"Erro ao buscar o produto, por favor tente novamente!"
-        })
-    }
-})
-
-// CADASTRAR PRODUTO
-router.post("/", upload.single("imagem"), async (req, res) => {
-
-    console.log(req.body)
-    console.log(req.file)
 
     try {
 
-        const {
-            nome,
-            descricao,
-            preco,
-            estoque,
-            estoque_minimo,
-            localizacao,
-            categoria_id,
-            material_id,
-            ativo,
-            destaque
-        } = req.body
+        const {id} = req.params;
 
-        if (!nome || !preco) {
-            return res.status(400).json({
-                erro: "Nome e preço são obrigatórios"
-            })
-        }
 
-        const imagem = req.file
-            ? `/uploads/${req.file.filename}`
-            : null
+       const [produto] = await db.query(
 
-        const ativoConvertido =
-            ativo === "true" || ativo === true ? 1 : 0
-            const destaqueConvertido = destaque === "true" || destaque === true ? 1 : 0
+`
+SELECT 
+    p.*,
+    c.nome AS categoria,
+    m.nome AS material
 
-        const sql = `
-            INSERT INTO produtos
-            (
-                nome,
-                descricao,
+FROM produtos p
+
+LEFT JOIN categorias c
+ON c.id = p.categoria_id
+
+LEFT JOIN materiais m
+ON m.id = p.material_id
+
+WHERE p.id = ?
+
+`,
+[id]
+
+)
+
+
+        if(produto.length === 0){
+
+return res.status(404).json({
+    erro:"Produto não encontrado"
+});
+
+}
+
+
+
+        const [variacoes] = await db.query(
+
+            `
+            SELECT
+                id,
+                tipo,
+                valor,
                 preco,
-                estoque,
-                estoque_minimo,
-                localizacao,
-                categoria_id,
-                material_id,
-                ativo,
-                imagem,
-                destaque
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
-        `
+                estoque
 
-        const [resultado] = await db.query(sql, [
-            nome,
-            descricao || null,
-            preco,
-            estoque || 0,
-            estoque_minimo || 5,
-            localizacao || null,
-            categoria_id || null,
-            material_id || null,
-            ativoConvertido,
-            imagem,
-            destaqueConvertido
-        ])
+            FROM produto_variacoes
 
-        const [produtoCriado] = await db.query(
-            `
-            SELECT *
-            FROM produtos
-            WHERE id = ?
-            `,
-            [resultado.insertId]
-        )
+            WHERE produto_id = ?
 
-        return res.status(201).json(produtoCriado[0])
+            ORDER BY id
 
-    } catch (error) {
-
-        console.error(error)
-
-        return res.status(500).json({
-            erro: "Erro ao criar produto"
-        })
-
-    }
-
-})
-
-// EXCLUIR PRODUTO
-router.delete("/:id", async (req, res) => {
-
-    try {
-
-        const { id } = req.params
-
-        const [resultado] = await db.query(
-            `
-            DELETE FROM produtos
-            WHERE id = ?
             `,
             [id]
-        )
 
-        if (resultado.affectedRows === 0) {
-            return res.status(404).json({
-                erro: "Produto não encontrado"
-            })
-        }
+        );
+
+
 
         return res.json({
-            mensagem: "Produto excluído com sucesso"
-        })
 
-    } catch (error) {
+            ...produto[0],
 
-        console.error(error)
+            variacoes
+
+        });
+
+
+
+    }catch(error){
+
+        console.error(error);
 
         return res.status(500).json({
-            erro: "Erro ao excluir produto"
-        })
+            erro:"Erro ao buscar produto"
+        });
 
     }
 
-})
+});
 
+
+
+
+
+
+
+// ======================================================
+// CADASTRAR PRODUTO
+// ======================================================
+
+
+router.post("/", upload.single("imagem"), async(req,res)=>{
+
+
+try{
+
+
+const {
+
+nome,
+descricao,
+preco,
+estoque,
+estoque_minimo,
+localizacao,
+categoria_id,
+material_id,
+ativo,
+destaque
+
+
+}=req.body;
+
+
+
+
+const imagem = req.file
+? `/uploads/${req.file.filename}`
+:null;
+
+
+
+const ativoConvertido =
+ativo === "true" || ativo === true
+?1:0;
+
+
+
+const destaqueConvertido =
+destaque === "true" || destaque === true
+?1:0;
+
+
+
+
+const [resultado] = await db.query(
+
+`
+INSERT INTO produtos
+
+(
+nome,
+descricao,
+preco,
+estoque,
+estoque_minimo,
+localizacao,
+categoria_id,
+material_id,
+ativo,
+imagem,
+destaque
+)
+
+VALUES(?,?,?,?,?,?,?,?,?,?,?)
+
+`,
+
+[
+
+nome,
+descricao || null,
+preco,
+estoque || 0,
+estoque_minimo || 5,
+localizacao || null,
+categoria_id || null,
+material_id || null,
+ativoConvertido,
+imagem,
+destaqueConvertido
+
+]
+
+
+);
+
+
+
+const [novoProduto] = await db.query(
+
+`
+SELECT *
+FROM produtos
+WHERE id = ?
+
+`,
+[resultado.insertId]
+
+
+);
+
+
+
+res.status(201).json(novoProduto[0]);
+
+
+
+}catch(error){
+
+
+console.error(error);
+
+
+res.status(500).json({
+erro:"Erro ao criar produto"
+});
+
+
+}
+
+
+});
+
+
+
+
+
+
+
+// ======================================================
+// DELETAR PRODUTO
+// ======================================================
+
+
+router.delete("/:id",async(req,res)=>{
+
+
+try{
+
+
+const {id}=req.params;
+
+
+
+const [resultado]=await db.query(
+
+`
+DELETE FROM produtos
+WHERE id=?
+
+`,
+[id]
+
+);
+
+
+
+if(resultado.affectedRows===0){
+
+return res.status(404).json({
+erro:"Produto não encontrado"
+});
+
+}
+
+
+
+res.json({
+mensagem:"Produto removido"
+});
+
+
+
+}catch(error){
+
+console.error(error);
+
+
+res.status(500).json({
+erro:"Erro ao deletar produto"
+});
+
+
+}
+
+
+
+});
+
+
+
+
+
+
+
+
+// ======================================================
 // EDITAR PRODUTO
-router.put("/:id", upload.single("imagem"), async (req, res) => {
-
-    try {
-
-        const { id } = req.params
-
-        const {
-            nome,
-            descricao,
-            preco,
-            estoque,
-            estoque_minimo,
-            localizacao,
-            categoria_id,
-            material_id,
-            ativo,
-            destaque
-        } = req.body
-
-        const ativoConvertido =
-            ativo === "true" || ativo === true ? 1 : 0
-        const destaqueConvertido = destaque === "true" || destaque === true ? 1 : 0
+// ======================================================
 
 
-        let sql
-        let parametros
+router.put("/:id", upload.single("imagem"), async(req,res)=>{
 
-        if (req.file) {
 
-            const imagem = `/uploads/${req.file.filename}`
+try{
 
-            sql = `
-                UPDATE produtos
-                SET
-                    nome = ?,
-                    descricao = ?,
-                    preco = ?,
-                    estoque = ?,
-                    estoque_minimo = ?,
-                    localizacao = ?,
-                    categoria_id = ?,
-                    material_id = ?,
-                    ativo = ?,
-                    destaque = ?,
-                    imagem = ?
-                    
-                WHERE id = ?
-            `
 
-            parametros = [
-                nome,
-                descricao,
-                preco,
-                estoque,
-                estoque_minimo,
-                localizacao,
-                categoria_id,
-                material_id,
-                ativoConvertido,
-                destaqueConvertido,
-                imagem,
-                id
-            ]
+const {id}=req.params;
 
-        } else {
 
-            sql = `
-                UPDATE produtos
-                SET
-                    nome = ?,
-                    descricao = ?,
-                    preco = ?,
-                    estoque = ?,
-                    estoque_minimo = ?,
-                    localizacao = ?,
-                    categoria_id = ?,
-                    material_id = ?,
-                    ativo = ?,
-                    destaque = ?
-                WHERE id = ?
-            `
+const {
 
-            parametros = [
-                nome,
-                descricao,
-                preco,
-                estoque,
-                estoque_minimo,
-                localizacao,
-                categoria_id,
-                material_id,
-                ativoConvertido,
-                destaqueConvertido,
-                id
-            ]
+nome,
+descricao,
+preco,
+estoque,
+estoque_minimo,
+localizacao,
+categoria_id,
+material_id,
+ativo,
+destaque
 
-        }
 
-        const [resultado] = await db.query(sql, parametros)
-
-        if (resultado.affectedRows === 0) {
-            return res.status(404).json({
-                erro: "Produto não encontrado"
-            })
-        }
-
-        const [produtoAtualizado] = await db.query(
-            `
-            SELECT *
-            FROM produtos
-            WHERE id = ?
-            `,
-            [id]
-        )
-
-        return res.json(produtoAtualizado[0])
-
-    } catch (error) {
-
-        console.error(error)
-
-        return res.status(500).json({
-            erro: "Erro ao atualizar produto"
-        })
-
-    }
-
-})
+}=req.body;
 
 
 
-export default router
+
+const ativoConvertido =
+ativo === "true" || ativo === true || ativo === "1"
+? 1
+: 0;
+
+
+
+const destaqueConvertido =
+destaque === "true" || destaque === true || destaque === "1"
+? 1
+: 0;
+
+
+
+
+
+let imagem = null;
+
+
+
+if(req.file){
+
+imagem = `/uploads/${req.file.filename}`;
+
+}
+
+
+
+
+let query = `
+
+UPDATE produtos SET
+
+nome=?,
+descricao=?,
+preco=?,
+estoque=?,
+estoque_minimo=?,
+localizacao=?,
+categoria_id=?,
+material_id=?,
+ativo=?,
+destaque=?
+
+`;
+
+
+
+let valores = [
+
+nome,
+
+descricao || null,
+
+Number(preco),
+
+Number(estoque),
+
+Number(estoque_minimo),
+
+localizacao || null,
+
+categoria_id || null,
+
+material_id || null,
+
+ativoConvertido,
+
+destaqueConvertido
+
+];
+
+
+
+
+
+if(imagem){
+
+
+query += `, imagem=?`;
+
+valores.push(imagem);
+
+
+}
+
+
+
+
+query += `
+
+WHERE id=?
+
+`;
+
+
+
+valores.push(id);
+
+
+
+
+await db.query(
+
+query,
+
+valores
+
+);
+
+
+
+
+
+
+const [produtoAtualizado]=await db.query(
+
+`
+SELECT *
+FROM produtos
+WHERE id=?
+`,
+[id]
+
+);
+
+
+
+res.json(produtoAtualizado[0]);
+
+
+
+
+}catch(error){
+
+
+console.error("ERRO EDITAR PRODUTO:",error);
+
+
+
+res.status(500).json({
+
+erro:"Erro ao editar produto",
+
+detalhes:error.message
+
+});
+
+
+}
+
+
+
+});
+
+
+
+export default router;
