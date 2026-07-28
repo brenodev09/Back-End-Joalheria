@@ -11,45 +11,45 @@ const router = express.Router();
 // GET /carrinho
 // =========================================================
 
-router.get("/", autenticarToken, async(req,res)=>{
+router.get("/", autenticarToken, async (req, res) => {
 
-try{
-
-
-const usuarioId = req.usuario.id;
+    try {
 
 
+        const usuarioId = req.usuario.id;
 
-const [carrinho] = await pool.query(
 
-`
+
+        const [carrinho] = await pool.query(
+
+            `
 SELECT id
 FROM carrinhos
 WHERE usuario_id = ?
 
 `,
-[usuarioId]
+            [usuarioId]
 
-);
-
-
-
-if(carrinho.length === 0){
-
-return res.json([]);
-
-}
+        );
 
 
 
-const carrinhoId = carrinho[0].id;
+        if (carrinho.length === 0) {
+
+            return res.json([]);
+
+        }
+
+
+
+        const carrinhoId = carrinho[0].id;
 
 
 
 
-const [itens] = await pool.query(
+        const [itens] = await pool.query(
 
-`
+            `
 
 SELECT
 
@@ -120,30 +120,30 @@ ORDER BY ci.id DESC
 
 `,
 
-[carrinhoId]
+            [carrinhoId]
 
-);
-
-
-
-res.json(itens);
+        );
 
 
 
-}catch(error){
+        res.json(itens);
 
 
-console.error(error);
+
+    } catch (error) {
 
 
-res.status(500).json({
-
-erro:"Erro ao carregar carrinho."
-
-});
+        console.error(error);
 
 
-}
+        res.status(500).json({
+
+            erro: "Erro ao carregar carrinho."
+
+        });
+
+
+    }
 
 
 
@@ -161,50 +161,50 @@ erro:"Erro ao carregar carrinho."
 // =========================================================
 
 
-router.post("/", autenticarToken, async(req,res)=>{
+router.post("/", autenticarToken, async (req, res) => {
 
 
-try{
+    try {
 
 
-const usuarioId = req.usuario.id;
-
-
-
-const {
-
-produto_id,
-
-quantidade = 1,
-
-variacao_id = null
-
-
-}=req.body;
+        const usuarioId = req.usuario.id;
 
 
 
+        const {
+
+            produto_id,
+
+            quantidade = 1,
+
+            variacao_id = null
 
 
-if(!produto_id){
-
-return res.status(400).json({
-
-erro:"Produto não informado."
-
-});
-
-}
+        } = req.body;
 
 
 
 
 
-// busca produto
+        if (!produto_id) {
 
-const [produto] = await pool.query(
+            return res.status(400).json({
 
-`
+                erro: "Produto não informado."
+
+            });
+
+        }
+
+
+
+
+
+        // busca produto
+
+        const [produto] = await pool.query(
+
+            `
 
 SELECT
 
@@ -218,42 +218,42 @@ WHERE id = ?
 
 `,
 
-[produto_id]
+            [produto_id]
 
-);
-
-
-
-
-
-if(produto.length === 0){
-
-return res.status(404).json({
-
-erro:"Produto não encontrado."
-
-});
-
-}
+        );
 
 
 
 
 
+        if (produto.length === 0) {
 
-let estoqueDisponivel = produto[0].estoque;
+            return res.status(404).json({
+
+                erro: "Produto não encontrado."
+
+            });
+
+        }
 
 
 
 
-// caso tenha variação
-
-if(variacao_id){
 
 
-const [variacao] = await pool.query(
+        let estoqueDisponivel = produto[0].estoque;
 
-`
+
+
+
+        // caso tenha variação
+
+        if (variacao_id) {
+
+
+            const [variacao] = await pool.query(
+
+                `
 
 SELECT
 
@@ -269,64 +269,64 @@ AND produto_id = ?
 
 `,
 
-[
-variacao_id,
-produto_id
-]
+                [
+                    variacao_id,
+                    produto_id
+                ]
 
 
-);
-
-
-
-
-
-if(variacao.length === 0){
-
-return res.status(404).json({
-
-erro:"Variação inválida para este produto."
-
-});
-
-
-}
-
-
-
-estoqueDisponivel = variacao[0].estoque;
-
-
-
-}
+            );
 
 
 
 
 
+            if (variacao.length === 0) {
 
-if(quantidade > estoqueDisponivel){
+                return res.status(404).json({
 
-return res.status(400).json({
+                    erro: "Variação inválida para este produto."
 
-erro:"Quantidade maior que estoque disponível."
-
-});
+                });
 
 
-}
+            }
+
+
+
+            estoqueDisponivel = variacao[0].estoque;
+
+
+
+        }
 
 
 
 
 
 
+        if (quantidade > estoqueDisponivel) {
 
-// procura carrinho
+            return res.status(400).json({
 
-const [carrinho] = await pool.query(
+                erro: "Quantidade maior que estoque disponível."
 
-`
+            });
+
+
+        }
+
+
+
+
+
+
+
+        // procura carrinho
+
+        const [carrinho] = await pool.query(
+
+            `
 
 SELECT id
 
@@ -336,25 +336,25 @@ WHERE usuario_id = ?
 
 `,
 
-[usuarioId]
+            [usuarioId]
 
-);
-
-
-
-
-let carrinhoId;
+        );
 
 
 
 
+        let carrinhoId;
 
-if(carrinho.length === 0){
 
 
-const [novoCarrinho] = await pool.query(
 
-`
+
+        if (carrinho.length === 0) {
+
+
+            const [novoCarrinho] = await pool.query(
+
+                `
 
 INSERT INTO carrinhos(usuario_id)
 
@@ -362,37 +362,37 @@ VALUES(?)
 
 `,
 
-[usuarioId]
+                [usuarioId]
 
-);
-
-
-
-carrinhoId = novoCarrinho.insertId;
+            );
 
 
 
-}else{
+            carrinhoId = novoCarrinho.insertId;
 
 
-carrinhoId = carrinho[0].id;
+
+        } else {
 
 
-}
+            carrinhoId = carrinho[0].id;
 
 
+        }
 
 
 
 
 
 
-// verifica item existente
 
 
-const [itemExistente] = await pool.query(
+        // verifica item existente
 
-`
+
+        const [itemExistente] = await pool.query(
+
+            `
 
 SELECT
 
@@ -424,52 +424,52 @@ AND ? IS NULL
 
 `,
 
-[
+            [
 
-carrinhoId,
+                carrinhoId,
 
-produto_id,
+                produto_id,
 
-variacao_id,
+                variacao_id,
 
-variacao_id
+                variacao_id
 
-]
-
-
-);
+            ]
 
 
-
-
-
-
-if(itemExistente.length > 0){
-
-
-
-const novaQuantidade =
-itemExistente[0].quantidade + quantidade;
-
-
-
-if(novaQuantidade > estoqueDisponivel){
-
-return res.status(400).json({
-
-erro:"Quantidade ultrapassa estoque."
-
-});
-
-}
+        );
 
 
 
 
 
-await pool.query(
 
-`
+        if (itemExistente.length > 0) {
+
+
+
+            const novaQuantidade =
+                itemExistente[0].quantidade + quantidade;
+
+
+
+            if (novaQuantidade > estoqueDisponivel) {
+
+                return res.status(400).json({
+
+                    erro: "Quantidade ultrapassa estoque."
+
+                });
+
+            }
+
+
+
+
+
+            await pool.query(
+
+                `
 
 UPDATE carrinho_itens
 
@@ -479,40 +479,40 @@ WHERE id = ?
 
 `,
 
-[
+                [
 
-novaQuantidade,
+                    novaQuantidade,
 
-itemExistente[0].id
+                    itemExistente[0].id
 
-]
-
-
-);
+                ]
 
 
-
-return res.json({
-
-mensagem:"Quantidade atualizada."
-
-});
+            );
 
 
-}
+
+            return res.json({
+
+                mensagem: "Quantidade atualizada."
+
+            });
 
 
+        }
 
 
 
 
 
-// cria item novo
 
 
-await pool.query(
+        // cria item novo
 
-`
+
+        await pool.query(
+
+            `
 
 INSERT INTO carrinho_itens
 
@@ -533,46 +533,46 @@ VALUES(?,?,?,?)
 
 `,
 
-[
+            [
 
-carrinhoId,
+                carrinhoId,
 
-produto_id,
+                produto_id,
 
-variacao_id,
+                variacao_id,
 
-quantidade
+                quantidade
 
-]
+            ]
 
-);
-
-
-
-
-res.status(201).json({
-
-mensagem:"Produto adicionado."
-
-});
+        );
 
 
 
 
-}catch(error){
+        res.status(201).json({
+
+            mensagem: "Produto adicionado."
+
+        });
 
 
-console.error(error);
 
 
-res.status(500).json({
-
-erro:"Erro ao adicionar produto."
-
-});
+    } catch (error) {
 
 
-}
+        console.error(error);
+
+
+        res.status(500).json({
+
+            erro: "Erro ao adicionar produto."
+
+        });
+
+
+    }
 
 
 
@@ -592,40 +592,40 @@ erro:"Erro ao adicionar produto."
 // =========================================================
 
 
-router.put("/item/:id", autenticarToken, async(req,res)=>{
+router.put("/item/:id", autenticarToken, async (req, res) => {
 
 
-try{
+    try {
 
 
-const usuarioId = req.usuario.id;
+        const usuarioId = req.usuario.id;
 
-const {id}=req.params;
+        const { id } = req.params;
 
-const {quantidade}=req.body;
-
-
-
-
-
-if(!quantidade || quantidade < 1){
-
-return res.status(400).json({
-
-erro:"Quantidade inválida."
-
-});
-
-
-}
+        const { quantidade } = req.body;
 
 
 
 
 
-const [item]=await pool.query(
+        if (!quantidade || quantidade < 1) {
 
-`
+            return res.status(400).json({
+
+                erro: "Quantidade inválida."
+
+            });
+
+
+        }
+
+
+
+
+
+        const [item] = await pool.query(
+
+            `
 
 SELECT
 
@@ -670,56 +670,56 @@ AND c.usuario_id = ?
 
 `,
 
-[
-id,
-usuarioId
-]
+            [
+                id,
+                usuarioId
+            ]
 
-);
-
-
-
-
-
-if(item.length===0){
-
-return res.status(404).json({
-
-erro:"Item não encontrado."
-
-});
-
-
-}
-
-
-
-
-const estoque =
-item[0].estoque_variacao ??
-item[0].estoque;
+        );
 
 
 
 
 
-if(quantidade > estoque){
+        if (item.length === 0) {
 
-return res.status(400).json({
+            return res.status(404).json({
 
-erro:"Quantidade maior que estoque."
+                erro: "Item não encontrado."
 
-});
-
-}
+            });
 
 
+        }
 
 
 
-await pool.query(
 
-`
+        const estoque =
+            item[0].estoque_variacao ??
+            item[0].estoque;
+
+
+
+
+
+        if (quantidade > estoque) {
+
+            return res.status(400).json({
+
+                erro: "Quantidade maior que estoque."
+
+            });
+
+        }
+
+
+
+
+
+        await pool.query(
+
+            `
 
 UPDATE carrinho_itens
 
@@ -729,45 +729,45 @@ WHERE id = ?
 
 `,
 
-[
+            [
 
-quantidade,
+                quantidade,
 
-id
+                id
 
-]
-
-
-);
+            ]
 
 
-
-
-
-res.json({
-
-mensagem:"Quantidade alterada."
-
-});
+        );
 
 
 
 
 
-}catch(error){
+        res.json({
+
+            mensagem: "Quantidade alterada."
+
+        });
 
 
-console.error(error);
 
 
-res.status(500).json({
 
-erro:"Erro ao alterar quantidade."
-
-});
+    } catch (error) {
 
 
-}
+        console.error(error);
+
+
+        res.status(500).json({
+
+            erro: "Erro ao alterar quantidade."
+
+        });
+
+
+    }
 
 
 
@@ -787,23 +787,23 @@ erro:"Erro ao alterar quantidade."
 // =========================================================
 
 
-router.delete("/item/:id", autenticarToken, async(req,res)=>{
+router.delete("/item/:id", autenticarToken, async (req, res) => {
 
 
-try{
+    try {
 
 
-const usuarioId=req.usuario.id;
+        const usuarioId = req.usuario.id;
 
-const {id}=req.params;
-
-
+        const { id } = req.params;
 
 
 
-const [item]=await pool.query(
 
-`
+
+        const [item] = await pool.query(
+
+            `
 
 SELECT ci.id
 
@@ -822,38 +822,38 @@ AND c.usuario_id = ?
 
 `,
 
-[
+            [
 
-id,
+                id,
 
-usuarioId
+                usuarioId
 
-]
+            ]
 
-);
-
-
-
-
-
-
-if(item.length===0){
-
-return res.status(404).json({
-
-erro:"Item não encontrado."
-
-});
-
-}
+        );
 
 
 
 
 
-await pool.query(
 
-`
+        if (item.length === 0) {
+
+            return res.status(404).json({
+
+                erro: "Item não encontrado."
+
+            });
+
+        }
+
+
+
+
+
+        await pool.query(
+
+            `
 
 DELETE FROM carrinho_itens
 
@@ -861,38 +861,38 @@ WHERE id = ?
 
 `,
 
-[id]
+            [id]
 
-);
-
-
-
-
-
-res.json({
-
-mensagem:"Produto removido."
-
-});
+        );
 
 
 
 
 
-}catch(error){
+        res.json({
+
+            mensagem: "Produto removido."
+
+        });
 
 
-console.error(error);
 
 
-res.status(500).json({
 
-erro:"Erro ao remover item."
-
-});
+    } catch (error) {
 
 
-}
+        console.error(error);
+
+
+        res.status(500).json({
+
+            erro: "Erro ao remover item."
+
+        });
+
+
+    }
 
 
 
@@ -912,19 +912,19 @@ erro:"Erro ao remover item."
 // =========================================================
 
 
-router.delete("/limpar", autenticarToken, async(req,res)=>{
+router.delete("/limpar", autenticarToken, async (req, res) => {
 
 
-try{
+    try {
 
 
-const usuarioId=req.usuario.id;
+        const usuarioId = req.usuario.id;
 
 
 
-const [carrinho]=await pool.query(
+        const [carrinho] = await pool.query(
 
-`
+            `
 
 SELECT id
 
@@ -934,30 +934,30 @@ WHERE usuario_id = ?
 
 `,
 
-[usuarioId]
+            [usuarioId]
 
-);
-
-
-
-
-
-if(carrinho.length===0){
-
-return res.json({
-
-mensagem:"Carrinho vazio."
-
-});
-
-}
+        );
 
 
 
 
-await pool.query(
 
-`
+        if (carrinho.length === 0) {
+
+            return res.json({
+
+                mensagem: "Carrinho vazio."
+
+            });
+
+        }
+
+
+
+
+        await pool.query(
+
+            `
 
 DELETE FROM carrinho_itens
 
@@ -965,38 +965,38 @@ WHERE carrinho_id = ?
 
 `,
 
-[carrinho[0].id]
+            [carrinho[0].id]
 
-);
-
-
-
-
-
-res.json({
-
-mensagem:"Carrinho limpo."
-
-});
+        );
 
 
 
 
 
-}catch(error){
+        res.json({
+
+            mensagem: "Carrinho limpo."
+
+        });
 
 
-console.error(error);
 
 
-res.status(500).json({
 
-erro:"Erro ao limpar carrinho."
-
-});
+    } catch (error) {
 
 
-}
+        console.error(error);
+
+
+        res.status(500).json({
+
+            erro: "Erro ao limpar carrinho."
+
+        });
+
+
+    }
 
 
 

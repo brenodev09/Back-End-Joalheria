@@ -10,9 +10,9 @@ const router = express.Router();
 // GET /produtos
 // ======================================================
 
-router.get("/", async (req,res)=>{
+router.get("/", async (req, res) => {
 
-    try{
+    try {
 
         const [produtos] = await db.query(
             `
@@ -37,12 +37,12 @@ router.get("/", async (req,res)=>{
         res.json(produtos);
 
 
-    }catch(error){
+    } catch (error) {
 
         console.error(error);
 
         res.status(500).json({
-            erro:"Erro ao listar produtos"
+            erro: "Erro ao listar produtos"
         });
 
     }
@@ -57,9 +57,9 @@ router.get("/", async (req,res)=>{
 // GET /produtos/destaques
 // ======================================================
 
-router.get("/destaques", async(req,res)=>{
+router.get("/destaques", async (req, res) => {
 
-    try{
+    try {
 
 
         const [produtos] = await db.query(
@@ -84,12 +84,12 @@ router.get("/destaques", async(req,res)=>{
         res.json(produtos);
 
 
-    }catch(error){
+    } catch (error) {
 
         console.error(error);
 
         res.status(500).json({
-            erro:"Erro ao buscar destaques"
+            erro: "Erro ao buscar destaques"
         });
 
     }
@@ -105,16 +105,16 @@ router.get("/destaques", async(req,res)=>{
 // GET /produtos/:id
 // ======================================================
 
-router.get("/:id", async (req,res) => {
+router.get("/:id", async (req, res) => {
 
     try {
 
-        const {id} = req.params;
+        const { id } = req.params;
 
 
-       const [produto] = await db.query(
+        const [produto] = await db.query(
 
-`
+            `
 SELECT 
     p.*,
     c.nome AS categoria,
@@ -131,18 +131,18 @@ ON m.id = p.material_id
 WHERE p.id = ?
 
 `,
-[id]
+            [id]
 
-)
+        )
 
 
-        if(produto.length === 0){
+        if (produto.length === 0) {
 
-return res.status(404).json({
-    erro:"Produto não encontrado"
-});
+            return res.status(404).json({
+                erro: "Produto não encontrado"
+            });
 
-}
+        }
 
 
 
@@ -179,12 +179,12 @@ return res.status(404).json({
 
 
 
-    }catch(error){
+    } catch (error) {
 
         console.error(error);
 
         return res.status(500).json({
-            erro:"Erro ao buscar produto"
+            erro: "Erro ao buscar produto"
         });
 
     }
@@ -202,53 +202,52 @@ return res.status(404).json({
 // ======================================================
 
 
-router.post("/", upload.single("imagem"), async(req,res)=>{
+router.post("/", upload.single("imagem"), async (req, res) => {
 
 
-try{
+    try {
 
 
-const {
-
-nome,
-descricao,
-preco,
-estoque,
-estoque_minimo,
-localizacao,
-categoria_id,
-material_id,
-ativo,
-destaque
-
-
-}=req.body;
+        const {
+            nome,
+            descricao,
+            preco,
+            estoque,
+            estoque_minimo,
+            localizacao,
+            categoria_id,
+            material_id,
+            ativo,
+            destaque
 
 
-
-
-const imagem = req.file
-? `/uploads/${req.file.filename}`
-:null;
-
-
-
-const ativoConvertido =
-ativo === "true" || ativo === true
-?1:0;
-
-
-
-const destaqueConvertido =
-destaque === "true" || destaque === true
-?1:0;
+        } = req.body;
 
 
 
 
-const [resultado] = await db.query(
+        const imagem = req.file
+            ? `/uploads/${req.file.filename}`
+            : null;
 
-`
+
+
+        const ativoConvertido =
+            ativo === "true" || ativo === true
+                ? 1 : 0;
+
+
+
+        const destaqueConvertido =
+            destaque === "true" || destaque === true
+                ? 1 : 0;
+
+
+
+
+        const [resultado] = await db.query(
+
+            `
 INSERT INTO produtos
 
 (
@@ -269,58 +268,58 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?)
 
 `,
 
-[
+            [
 
-nome,
-descricao || null,
-preco,
-estoque || 0,
-estoque_minimo || 5,
-localizacao || null,
-categoria_id || null,
-material_id || null,
-ativoConvertido,
-imagem,
-destaqueConvertido
+                nome,
+                descricao || null,
+                preco,
+                estoque || 0,
+                estoque_minimo || 5,
+                localizacao || null,
+                categoria_id || null,
+                material_id || null,
+                ativoConvertido,
+                imagem,
+                destaqueConvertido
 
-]
-
-
-);
+            ]
 
 
+        );
 
-const [novoProduto] = await db.query(
 
-`
+
+        const [novoProduto] = await db.query(
+
+            `
 SELECT *
 FROM produtos
 WHERE id = ?
 
 `,
-[resultado.insertId]
+            [resultado.insertId]
 
 
-);
-
-
-
-res.status(201).json(novoProduto[0]);
+        );
 
 
 
-}catch(error){
+        res.status(201).json(novoProduto[0]);
 
 
-console.error(error);
+
+    } catch (error) {
 
 
-res.status(500).json({
-erro:"Erro ao criar produto"
-});
+        console.error(error);
 
 
-}
+        res.status(500).json({
+            erro: "Erro ao criar produto"
+        });
+
+
+    }
 
 
 });
@@ -336,56 +335,56 @@ erro:"Erro ao criar produto"
 // ======================================================
 
 
-router.delete("/:id",async(req,res)=>{
+router.delete("/:id", async (req, res) => {
 
 
-try{
+    try {
 
 
-const {id}=req.params;
+        const { id } = req.params;
 
 
 
-const [resultado]=await db.query(
+        const [resultado] = await db.query(
 
-`
+            `
 DELETE FROM produtos
 WHERE id=?
 
 `,
-[id]
+            [id]
 
-);
-
-
-
-if(resultado.affectedRows===0){
-
-return res.status(404).json({
-erro:"Produto não encontrado"
-});
-
-}
+        );
 
 
 
-res.json({
-mensagem:"Produto removido"
-});
+        if (resultado.affectedRows === 0) {
+
+            return res.status(404).json({
+                erro: "Produto não encontrado"
+            });
+
+        }
 
 
 
-}catch(error){
-
-console.error(error);
-
-
-res.status(500).json({
-erro:"Erro ao deletar produto"
-});
+        res.json({
+            mensagem: "Produto removido"
+        });
 
 
-}
+
+    } catch (error) {
+
+        console.error(error);
+
+
+        res.status(500).json({
+            erro: "Erro ao deletar produto"
+        });
+
+
+    }
 
 
 
@@ -403,64 +402,64 @@ erro:"Erro ao deletar produto"
 // ======================================================
 
 
-router.put("/:id", upload.single("imagem"), async(req,res)=>{
+router.put("/:id", upload.single("imagem"), async (req, res) => {
 
 
-try{
+    try {
 
 
-const {id}=req.params;
+        const { id } = req.params;
 
 
-const {
+        const {
 
-nome,
-descricao,
-preco,
-estoque,
-estoque_minimo,
-localizacao,
-categoria_id,
-material_id,
-ativo,
-destaque
-
-
-}=req.body;
+            nome,
+            descricao,
+            preco,
+            estoque,
+            estoque_minimo,
+            localizacao,
+            categoria_id,
+            material_id,
+            ativo,
+            destaque
 
 
-
-
-const ativoConvertido =
-ativo === "true" || ativo === true || ativo === "1"
-? 1
-: 0;
-
-
-
-const destaqueConvertido =
-destaque === "true" || destaque === true || destaque === "1"
-? 1
-: 0;
+        } = req.body;
 
 
 
 
-
-let imagem = null;
-
-
-
-if(req.file){
-
-imagem = `/uploads/${req.file.filename}`;
-
-}
+        const ativoConvertido =
+            ativo === "true" || ativo === true || ativo === "1"
+                ? 1
+                : 0;
 
 
 
+        const destaqueConvertido =
+            destaque === "true" || destaque === true || destaque === "1"
+                ? 1
+                : 0;
 
-let query = `
+
+
+
+
+        let imagem = null;
+
+
+
+        if (req.file) {
+
+            imagem = `/uploads/${req.file.filename}`;
+
+        }
+
+
+
+
+        let query = `
 
 UPDATE produtos SET
 
@@ -479,48 +478,48 @@ destaque=?
 
 
 
-let valores = [
+        let valores = [
 
-nome,
+            nome,
 
-descricao || null,
+            descricao || null,
 
-Number(preco),
+            Number(preco),
 
-Number(estoque),
+            Number(estoque),
 
-Number(estoque_minimo),
+            Number(estoque_minimo),
 
-localizacao || null,
+            localizacao || null,
 
-categoria_id || null,
+            categoria_id || null,
 
-material_id || null,
+            material_id || null,
 
-ativoConvertido,
+            ativoConvertido,
 
-destaqueConvertido
+            destaqueConvertido
 
-];
-
-
-
-
-
-if(imagem){
-
-
-query += `, imagem=?`;
-
-valores.push(imagem);
-
-
-}
+        ];
 
 
 
 
-query += `
+
+        if (imagem) {
+
+
+            query += `, imagem=?`;
+
+            valores.push(imagem);
+
+
+        }
+
+
+
+
+        query += `
 
 WHERE id=?
 
@@ -528,59 +527,59 @@ WHERE id=?
 
 
 
-valores.push(id);
+        valores.push(id);
 
 
 
 
-await db.query(
+        await db.query(
 
-query,
+            query,
 
-valores
+            valores
 
-);
-
-
+        );
 
 
 
 
-const [produtoAtualizado]=await db.query(
 
-`
+
+        const [produtoAtualizado] = await db.query(
+
+            `
 SELECT *
 FROM produtos
 WHERE id=?
 `,
-[id]
+            [id]
 
-);
-
-
-
-res.json(produtoAtualizado[0]);
+        );
 
 
 
-
-}catch(error){
-
-
-console.error("ERRO EDITAR PRODUTO:",error);
+        res.json(produtoAtualizado[0]);
 
 
 
-res.status(500).json({
 
-erro:"Erro ao editar produto",
-
-detalhes:error.message
-
-});
+    } catch (error) {
 
 
-}
+        console.error("ERRO EDITAR PRODUTO:", error);
+
+
+
+        res.status(500).json({
+
+            erro: "Erro ao editar produto",
+
+            detalhes: error.message
+
+        });
+
+
+    }
 
 
 
