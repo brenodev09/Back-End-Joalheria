@@ -4,8 +4,6 @@ import { autenticarToken } from "../middlewares/autenticacao.js";
 
 const router = express.Router();
 
-
-
 // =========================================================
 // LISTAR CARRINHO DO USUÁRIO
 // GET /carrinho
@@ -15,10 +13,7 @@ router.get("/", autenticarToken, async (req, res) => {
 
     try {
 
-
         const usuarioId = req.usuario.id;
-
-
 
         const [carrinho] = await pool.query(
 
@@ -32,20 +27,13 @@ WHERE usuario_id = ?
 
         );
 
-
-
         if (carrinho.length === 0) {
 
             return res.json([]);
 
         }
 
-
-
         const carrinhoId = carrinho[0].id;
-
-
-
 
         const [itens] = await pool.query(
 
@@ -57,7 +45,6 @@ ci.id,
 
 ci.quantidade,
 
-
 p.id AS produto_id,
 
 p.nome,
@@ -66,9 +53,7 @@ p.descricao,
 
 p.imagem,
 
-
 m.nome AS material,
-
 
 pv.id AS variacao_id,
 
@@ -76,47 +61,28 @@ pv.tipo AS tipo_variacao,
 
 pv.valor AS variacao,
 
-
 COALESCE(
 pv.preco,
 p.preco
 ) AS preco
 
-
-
 FROM carrinho_itens ci
-
-
 
 INNER JOIN produtos p
 
 ON p.id = ci.produto_id
 
-
-
-
 LEFT JOIN materiais m
 
 ON m.id = p.material_id
-
-
-
-
 
 LEFT JOIN produto_variacoes pv
 
 ON pv.id = ci.variacao_id
 
-
-
-
-
 WHERE ci.carrinho_id = ?
 
-
-
 ORDER BY ci.id DESC
-
 
 `,
 
@@ -124,17 +90,11 @@ ORDER BY ci.id DESC
 
         );
 
-
-
         res.json(itens);
-
-
 
     } catch (error) {
 
-
         console.error(error);
-
 
         res.status(500).json({
 
@@ -142,34 +102,20 @@ ORDER BY ci.id DESC
 
         });
 
-
     }
 
-
-
 });
-
-
-
-
-
-
 
 // =========================================================
 // ADICIONAR PRODUTO AO CARRINHO
 // POST /carrinho
 // =========================================================
 
-
 router.post("/", autenticarToken, async (req, res) => {
-
 
     try {
 
-
         const usuarioId = req.usuario.id;
-
-
 
         const {
 
@@ -179,12 +125,7 @@ router.post("/", autenticarToken, async (req, res) => {
 
             variacao_id = null
 
-
         } = req.body;
-
-
-
-
 
         if (!produto_id) {
 
@@ -195,10 +136,6 @@ router.post("/", autenticarToken, async (req, res) => {
             });
 
         }
-
-
-
-
 
         // busca produto
 
@@ -222,10 +159,6 @@ WHERE id = ?
 
         );
 
-
-
-
-
         if (produto.length === 0) {
 
             return res.status(404).json({
@@ -236,20 +169,11 @@ WHERE id = ?
 
         }
 
-
-
-
-
-
         let estoqueDisponivel = produto[0].estoque;
-
-
-
 
         // caso tenha variação
 
         if (variacao_id) {
-
 
             const [variacao] = await pool.query(
 
@@ -274,12 +198,7 @@ AND produto_id = ?
                     produto_id
                 ]
 
-
             );
-
-
-
-
 
             if (variacao.length === 0) {
 
@@ -289,21 +208,11 @@ AND produto_id = ?
 
                 });
 
-
             }
-
-
 
             estoqueDisponivel = variacao[0].estoque;
 
-
-
         }
-
-
-
-
-
 
         if (quantidade > estoqueDisponivel) {
 
@@ -313,14 +222,7 @@ AND produto_id = ?
 
             });
 
-
         }
-
-
-
-
-
-
 
         // procura carrinho
 
@@ -340,17 +242,9 @@ WHERE usuario_id = ?
 
         );
 
-
-
-
         let carrinhoId;
 
-
-
-
-
         if (carrinho.length === 0) {
-
 
             const [novoCarrinho] = await pool.query(
 
@@ -366,29 +260,15 @@ VALUES(?)
 
             );
 
-
-
             carrinhoId = novoCarrinho.insertId;
-
-
 
         } else {
 
-
             carrinhoId = carrinho[0].id;
-
 
         }
 
-
-
-
-
-
-
-
         // verifica item existente
-
 
         const [itemExistente] = await pool.query(
 
@@ -402,11 +282,9 @@ quantidade
 
 FROM carrinho_itens
 
-
 WHERE carrinho_id = ?
 
 AND produto_id = ?
-
 
 AND (
 
@@ -420,7 +298,6 @@ AND ? IS NULL
 )
 
 )
-
 
 `,
 
@@ -436,22 +313,12 @@ AND ? IS NULL
 
             ]
 
-
         );
-
-
-
-
-
 
         if (itemExistente.length > 0) {
 
-
-
             const novaQuantidade =
                 itemExistente[0].quantidade + quantidade;
-
-
 
             if (novaQuantidade > estoqueDisponivel) {
 
@@ -462,10 +329,6 @@ AND ? IS NULL
                 });
 
             }
-
-
-
-
 
             await pool.query(
 
@@ -487,10 +350,7 @@ WHERE id = ?
 
                 ]
 
-
             );
-
-
 
             return res.json({
 
@@ -498,17 +358,9 @@ WHERE id = ?
 
             });
 
-
         }
 
-
-
-
-
-
-
         // cria item novo
-
 
         await pool.query(
 
@@ -528,7 +380,6 @@ quantidade
 
 )
 
-
 VALUES(?,?,?,?)
 
 `,
@@ -547,23 +398,15 @@ VALUES(?,?,?,?)
 
         );
 
-
-
-
         res.status(201).json({
 
             mensagem: "Produto adicionado."
 
         });
 
-
-
-
     } catch (error) {
 
-
         console.error(error);
-
 
         res.status(500).json({
 
@@ -571,42 +414,24 @@ VALUES(?,?,?,?)
 
         });
 
-
     }
 
-
-
 });
-
-
-
-
-
-
-
-
 
 // =========================================================
 // ALTERAR QUANTIDADE
 // PUT /carrinho/item/:id
 // =========================================================
 
-
 router.put("/item/:id", autenticarToken, async (req, res) => {
 
-
     try {
-
 
         const usuarioId = req.usuario.id;
 
         const { id } = req.params;
 
         const { quantidade } = req.body;
-
-
-
-
 
         if (!quantidade || quantidade < 1) {
 
@@ -616,12 +441,7 @@ router.put("/item/:id", autenticarToken, async (req, res) => {
 
             });
 
-
         }
-
-
-
-
 
         const [item] = await pool.query(
 
@@ -633,36 +453,23 @@ ci.id,
 
 ci.variacao_id,
 
-
 p.estoque,
-
 
 pv.estoque AS estoque_variacao
 
-
-
 FROM carrinho_itens ci
-
-
 
 INNER JOIN carrinhos c
 
 ON c.id = ci.carrinho_id
 
-
-
 INNER JOIN produtos p
 
 ON p.id = ci.produto_id
 
-
-
 LEFT JOIN produto_variacoes pv
 
 ON pv.id = ci.variacao_id
-
-
-
 
 WHERE ci.id = ?
 
@@ -677,10 +484,6 @@ AND c.usuario_id = ?
 
         );
 
-
-
-
-
         if (item.length === 0) {
 
             return res.status(404).json({
@@ -689,19 +492,11 @@ AND c.usuario_id = ?
 
             });
 
-
         }
-
-
-
 
         const estoque =
             item[0].estoque_variacao ??
             item[0].estoque;
-
-
-
-
 
         if (quantidade > estoque) {
 
@@ -712,10 +507,6 @@ AND c.usuario_id = ?
             });
 
         }
-
-
-
-
 
         await pool.query(
 
@@ -737,12 +528,7 @@ WHERE id = ?
 
             ]
 
-
         );
-
-
-
-
 
         res.json({
 
@@ -750,15 +536,9 @@ WHERE id = ?
 
         });
 
-
-
-
-
     } catch (error) {
 
-
         console.error(error);
-
 
         res.status(500).json({
 
@@ -766,40 +546,22 @@ WHERE id = ?
 
         });
 
-
     }
 
-
-
 });
-
-
-
-
-
-
-
-
 
 // =========================================================
 // REMOVER ITEM
 // DELETE /carrinho/item/:id
 // =========================================================
 
-
 router.delete("/item/:id", autenticarToken, async (req, res) => {
 
-
     try {
-
 
         const usuarioId = req.usuario.id;
 
         const { id } = req.params;
-
-
-
-
 
         const [item] = await pool.query(
 
@@ -809,12 +571,9 @@ SELECT ci.id
 
 FROM carrinho_itens ci
 
-
 INNER JOIN carrinhos c
 
 ON c.id = ci.carrinho_id
-
-
 
 WHERE ci.id = ?
 
@@ -832,11 +591,6 @@ AND c.usuario_id = ?
 
         );
 
-
-
-
-
-
         if (item.length === 0) {
 
             return res.status(404).json({
@@ -846,10 +600,6 @@ AND c.usuario_id = ?
             });
 
         }
-
-
-
-
 
         await pool.query(
 
@@ -865,25 +615,15 @@ WHERE id = ?
 
         );
 
-
-
-
-
         res.json({
 
             mensagem: "Produto removido."
 
         });
 
-
-
-
-
     } catch (error) {
 
-
         console.error(error);
-
 
         res.status(500).json({
 
@@ -891,36 +631,20 @@ WHERE id = ?
 
         });
 
-
     }
 
-
-
 });
-
-
-
-
-
-
-
-
 
 // =========================================================
 // LIMPAR CARRINHO
 // DELETE /carrinho/limpar
 // =========================================================
 
-
 router.delete("/limpar", autenticarToken, async (req, res) => {
-
 
     try {
 
-
         const usuarioId = req.usuario.id;
-
-
 
         const [carrinho] = await pool.query(
 
@@ -938,10 +662,6 @@ WHERE usuario_id = ?
 
         );
 
-
-
-
-
         if (carrinho.length === 0) {
 
             return res.json({
@@ -951,9 +671,6 @@ WHERE usuario_id = ?
             });
 
         }
-
-
-
 
         await pool.query(
 
@@ -969,25 +686,15 @@ WHERE carrinho_id = ?
 
         );
 
-
-
-
-
         res.json({
 
             mensagem: "Carrinho limpo."
 
         });
 
-
-
-
-
     } catch (error) {
 
-
         console.error(error);
-
 
         res.status(500).json({
 
@@ -995,14 +702,8 @@ WHERE carrinho_id = ?
 
         });
 
-
     }
 
-
-
 });
-
-
-
 
 export default router;
