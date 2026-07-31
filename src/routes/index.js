@@ -7,7 +7,10 @@ import materiaisRoutes from "./materiais.routes.js"
 import produtosRoutes from "./produtos.routes.js"
 import dashboardRoutes from "./dashboard.routes.js"
 import carrinhoRoutes from "./carrinho.routes.js";
-import cuponsRoutes from "./cupons.routes.js"
+import cuponsRoutes from "./cupons.routes.js";
+import pedidosRoutes from "./pedidos.routes.js"
+
+
 
 
 const routes = express.Router()
@@ -26,5 +29,6 @@ routes.use("/produtos", produtosRoutes)
 routes.use("/carrinho", carrinhoRoutes);
 routes.use("/dashboard", dashboardRoutes)
 routes.use("/cupons", cuponsRoutes)
+routes.use("/pedidos", pedidosRoutes)
 
 export default routes
