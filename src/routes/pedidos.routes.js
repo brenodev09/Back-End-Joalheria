@@ -44,7 +44,7 @@ router.post("/", autenticarToken, async (req, res) => {
         let frete = 0
         let prazoEntrega = ""
         let cupomId = null
-            let desconto = 0
+        let desconto = 0
 
 
         if (codigo) {
@@ -143,7 +143,8 @@ router.post("/", autenticarToken, async (req, res) => {
 
         return res.status(201).json({
             mensagem: "Pedido realizado com sucesso!",
-            pedidoId: pedido.insertId
+            pedidoId: pedido.insertId,
+            total
         })
 
     } catch (error) {
@@ -161,6 +162,58 @@ router.post("/", autenticarToken, async (req, res) => {
 
 })
 
+
+// metodo de leitura dos pedidos do usuario
+
+router.get("/meus-pedidos/", autenticarToken, async (req, res) => {
+
+    try {
+        const usuarioId = req.usuario.id
+        const [pedidos] = await db.query(`select * from pedidos where usuario_id = ? order by criado_em desc`, [usuarioId])
+
+        res.json(pedidos)
+
+    } catch (error) {
+        console.error(error)
+
+        return res.status(500).json({
+            erro: "Erro ao carregar os seus pedidos"
+        })
+    }
+
+})
+
+
+router.get("/:id", autenticarToken, async (req, res) => {
+    try {
+        const usuarioId = req.usuario.id
+        const pedidoId = req.params.id
+
+        const [pedido] = await db.query(`select * from pedidos where id = ? AND usuario_id = ?`, [pedidoId,usuarioId ])
+
+        if (pedido.length === 0) {
+            return res.status(404).json({
+                erro: "Pedido não encontrado"
+            })
+        }
+
+
+        const [itens] = await db.query(`SELECT pi.*, p.nome, p.imagem FROM pedidos_itens pi INNER JOIN produtos p
+             ON p.id = pi.produto_idWHERE pi.pedido_id = ?`, [pedidoId])
+
+        res.json({
+            pedido:pedido[0],
+            itens
+        })     
+
+    } catch (error) {
+        console.error(error)
+
+        return res.status(500).json({
+            erro:"Erro ao buscar pedido"
+        })
+    }
+})
 
 export default router
 
