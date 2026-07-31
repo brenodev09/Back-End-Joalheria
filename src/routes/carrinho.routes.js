@@ -183,6 +183,8 @@ router.post("/", autenticarToken, async (req, res) => {
         } = req.body;
 
 
+   console.log("BODY RECEBIDO:", req.body);
+        console.log("USUARIO:", req.usuario);
 
 
 
@@ -442,6 +444,11 @@ AND ? IS NULL
 
 
 
+        const [teste] = await pool.query(
+            "SELECT DATABASE() AS banco"
+        );
+
+        console.log("BANCO ATUAL:", teste);
 
 
         if (itemExistente.length > 0) {
@@ -561,18 +568,17 @@ VALUES(?,?,?,?)
 
     } catch (error) {
 
+    console.error(
+    "ERRO COMPLETO CARRINHO:",
+    error.response?.data
+);
 
-        console.error(error);
+    res.status(500).json({
+        erro: "Erro ao adicionar produto.",
+        detalhe: error.message
+    });
 
-
-        res.status(500).json({
-
-            erro: "Erro ao adicionar produto."
-
-        });
-
-
-    }
+}
 
 
 
