@@ -165,13 +165,34 @@ router.post("/", autenticarToken, async (req, res) => {
 
 // metodo de leitura dos pedidos do usuario
 
-router.get("/meus-pedidos/", autenticarToken, async (req, res) => {
+router.get("/meus-pedidos", autenticarToken, async (req, res) => {
 
     try {
         const usuarioId = req.usuario.id
         const [pedidos] = await db.query(`select * from pedidos where usuario_id = ? order by criado_em desc`, [usuarioId])
 
-        res.json(pedidos)
+        if (pedidos.length === 0) {
+            return res.json([])
+        }
+
+        const pedidoIds = pedidos.map((pedido) => pedido.id)
+
+        // busca os itens de todos os pedidos de uma vez só (evita fazer 1 query por pedido)
+        const [itens] = await db.query(
+            `SELECT pi.pedido_id, pi.produto_id, pi.quantidade, pi.preco_unitario, pi.subtotal,
+                    p.nome, p.imagem
+               FROM pedidos_itens pi
+               INNER JOIN produtos p ON p.id = pi.produto_id
+              WHERE pi.pedido_id IN (?)`,
+            [pedidoIds]
+        )
+
+        const pedidosComItens = pedidos.map((pedido) => ({
+            ...pedido,
+            itens: itens.filter((item) => item.pedido_id === pedido.id)
+        }))
+
+        res.json(pedidosComItens)
 
     } catch (error) {
         console.error(error)
@@ -199,7 +220,7 @@ router.get("/:id", autenticarToken, async (req, res) => {
 
 
         const [itens] = await db.query(`SELECT pi.*, p.nome, p.imagem FROM pedidos_itens pi INNER JOIN produtos p
-             ON p.id = pi.produto_idWHERE pi.pedido_id = ?`, [pedidoId])
+             ON p.id = pi.produto_id WHERE pi.pedido_id = ?`, [pedidoId])
 
         res.json({
             pedido:pedido[0],
@@ -216,4 +237,3 @@ router.get("/:id", autenticarToken, async (req, res) => {
 })
 
 export default router
-
