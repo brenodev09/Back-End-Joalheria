@@ -162,4 +162,31 @@ router.get("/produtos-recentes", async (req, res) => {
 
 })
 
+
+router.get("/resumo-vendas", async (req, res) =>{
+
+    try{
+
+        const [[vendasHoje]] = await db.query(`SELECT COUNT(*) AS total FROM pedidos WHERE DATE(criado_em) = CURDATE() `)
+
+        const [[vendasMensal]] = await db.query(`  SELECT COUNT(*) AS total
+            FROM pedidos
+            WHERE MONTH(criado_em) = MONTH(CURDATE())
+            AND YEAR(criado_em) = YEAR(CURDATE())` )
+
+
+        return res.json({
+            vendasHoje:vendasHoje.total,
+            vendasMensal:vendasMensal.total 
+        })    
+
+    } catch(error){
+        console.error(error)
+
+        return res.status(500).json({
+            erro:"Erro ao carregar as vendas de hoje"
+        })
+    }
+})
+
 export default router
