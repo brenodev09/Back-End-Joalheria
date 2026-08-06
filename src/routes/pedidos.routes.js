@@ -205,12 +205,105 @@ router.get("/meus-pedidos", autenticarToken, async (req, res) => {
 })
 
 
+// *** MÉTODOS DOS PEDIDOS PARA O ADMIN
+// Precisam vir ANTES de "/:id" — como têm segmento fixo ("pedidos-admin"),
+// se ficassem depois, "/:id" capturaria a chamada primeiro (tratando
+// "pedidos-admin" como se fosse um id) e nunca chegariam a executar.
+
+// método de listagem de todos os pedidos
+
+router.get("/pedidos-admin", autenticarToken, async (req, res) => {
+
+    try {
+        const [pedidos] = await db.query(`
+               SELECT
+                p.id,
+                p.total,
+                p.status_pedido,
+                p.criado_em,
+                u.nome AS cliente_nome,
+                u.email AS cliente_email,
+
+                COUNT(pi.id) AS quantidade_itens FROM pedidos p
+
+                 INNER JOIN usuarios u
+                ON u.id = p.usuario_id
+
+            LEFT JOIN pedidos_itens pi
+                ON pi.pedido_id = p.id
+
+            GROUP BY p.id, p.total, p.status_pedido, p.criado_em, u.nome, u.email
+             ORDER BY p.criado_em DESC
+             `)
+
+        // Lista vazia não é erro — devolve 200 com array vazio (igual à rota
+        // /meus-pedidos) pra não derrubar o front no catch do axios.
+        res.json(pedidos)
+    } catch (error) {
+        console.error(error)
+
+        return res.status(500).json({
+            erro: "Erro ao buscar os pedidos"
+        })
+    }
+})
+
+router.get("/pedidos-admin/:id", autenticarToken, async (req, res) => {
+
+    try {
+
+        const pedidoId = req.params.id
+
+        const [pedido] = await db.query(`
+            SELECT
+                p.*,
+                u.nome AS cliente_nome,
+                u.email AS cliente_email
+            FROM pedidos p
+            INNER JOIN usuarios u
+                ON u.id = p.usuario_id
+            WHERE p.id = ?`, [pedidoId])
+
+        if (pedido.length === 0) {
+            return res.status(404).json({
+                erro: "Pedido não encontrado"
+            })
+        }
+
+        const [itens] = await db.query(`SELECT
+                pi.*,
+                pr.nome,
+                pr.imagem
+            FROM pedidos_itens pi
+            INNER JOIN produtos pr
+                ON pr.id = pi.produto_id
+            WHERE pi.pedido_id = ?`, [pedidoId])
+
+        res.json({
+            pedido: pedido[0],
+            itens
+        })
+
+    
+    } catch (error) {
+        console.error(error)
+
+        return res.status(500).json({
+            erro:"Erro ao buscar os detalhes do pedido"
+        })
+    }
+})
+
+
+// Rota genérica de detalhe do pedido do usuário — fica por último de
+// propósito: qualquer segmento fixo (/meus-pedidos, /pedidos-admin...)
+// precisa vir antes dela, senão é engolido por esse ":id".
 router.get("/:id", autenticarToken, async (req, res) => {
     try {
         const usuarioId = req.usuario.id
         const pedidoId = req.params.id
 
-        const [pedido] = await db.query(`select * from pedidos where id = ? AND usuario_id = ?`, [pedidoId,usuarioId ])
+        const [pedido] = await db.query(`select * from pedidos where id = ? AND usuario_id = ?`, [pedidoId, usuarioId])
 
         if (pedido.length === 0) {
             return res.status(404).json({
@@ -223,17 +316,18 @@ router.get("/:id", autenticarToken, async (req, res) => {
              ON p.id = pi.produto_id WHERE pi.pedido_id = ?`, [pedidoId])
 
         res.json({
-            pedido:pedido[0],
+            pedido: pedido[0],
             itens
-        })     
+        })
 
     } catch (error) {
         console.error(error)
 
         return res.status(500).json({
-            erro:"Erro ao buscar pedido"
+            erro: "Erro ao buscar pedido"
         })
     }
 })
+
 
 export default router
