@@ -236,8 +236,7 @@ router.get("/pedidos-admin", autenticarToken, async (req, res) => {
              ORDER BY p.criado_em DESC
              `)
 
-        // Lista vazia não é erro — devolve 200 com array vazio (igual à rota
-        // /meus-pedidos) pra não derrubar o front no catch do axios.
+       
         res.json(pedidos)
     } catch (error) {
         console.error(error)
@@ -290,6 +289,47 @@ router.get("/pedidos-admin/:id", autenticarToken, async (req, res) => {
 
         return res.status(500).json({
             erro:"Erro ao buscar os detalhes do pedido"
+        })
+    }
+})
+
+router.put("/pedidos-admin/:id/status", autenticarToken, async (req,res) => {
+
+    try{
+
+        const pedidoId = req.params.id
+        const {status} = req.body
+
+        const statusValido = [
+            "pendente", "pago", "enviado", "entregue", "cancelado"
+        ]
+
+        if(!statusValido.includes(status)) {
+            return res.status(400).json({
+                erro:"Status inválido"
+            })
+        }
+
+        const atualizacaoStatus = await db.query(`
+            update pedidos set status_pedido = ? where id = ?  
+        `, [status, pedidoId])
+
+        if (atualizacaoStatus.affectedRows === 0) {
+            return res.status(404).json({
+                erro:"Pedido não encontrado"
+            })
+        }
+
+        res.json({
+            mensagem:"Status do pedido atualizado com sucesso"
+        })
+
+        
+    } catch(error) {
+        console.error(error)
+
+        return res.status(500).json({
+            erro:"Erro ao atualizar o status do pedido"
         })
     }
 })
