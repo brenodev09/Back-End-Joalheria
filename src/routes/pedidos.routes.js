@@ -123,6 +123,13 @@ router.post("/", autenticarToken, async (req, res) => {
            prazo_entrega, cupom_id) values (?,?,?,?,?,?,?,?,?) `, [usuarioId, subtotal, desconto, frete, total, formaPagamento, tipoEntrega,
             prazoEntrega, cupomId])
 
+        // primeiro registro da timeline — mesmo status default ("pendente")
+        // que a coluna status_pedido nasce com
+        await connection.query(
+            `insert into historico_pedidos (pedido_id, status) values (?, ?)`,
+            [pedido.insertId, "pendente"]
+        )
+
 
         for (const item of itensCarrinho) {
             await connection.query(
@@ -187,9 +194,19 @@ router.get("/meus-pedidos", autenticarToken, async (req, res) => {
             [pedidoIds]
         )
 
+        // idem pra timeline — um select só pra todos os pedidos, em vez de 1 por pedido
+        const [historico] = await db.query(
+            `SELECT pedido_id, status, criado_em
+               FROM historico_pedidos
+              WHERE pedido_id IN (?)
+              ORDER BY criado_em ASC`,
+            [pedidoIds]
+        )
+
         const pedidosComItens = pedidos.map((pedido) => ({
             ...pedido,
-            itens: itens.filter((item) => item.pedido_id === pedido.id)
+            itens: itens.filter((item) => item.pedido_id === pedido.id),
+            timeline: historico.filter((evento) => evento.pedido_id === pedido.id)
         }))
 
         res.json(pedidosComItens)
@@ -236,7 +253,7 @@ router.get("/pedidos-admin", autenticarToken, async (req, res) => {
              ORDER BY p.criado_em DESC
              `)
 
-       
+
         res.json(pedidos)
     } catch (error) {
         console.error(error)
@@ -278,58 +295,70 @@ router.get("/pedidos-admin/:id", autenticarToken, async (req, res) => {
                 ON pr.id = pi.produto_id
             WHERE pi.pedido_id = ?`, [pedidoId])
 
+        const [timeline] = await db.query(
+            `SELECT status, criado_em FROM historico_pedidos WHERE pedido_id = ? ORDER BY criado_em ASC`,
+            [pedidoId]
+        )
+
         res.json({
             pedido: pedido[0],
-            itens
+            itens,
+            timeline
         })
 
-    
+
     } catch (error) {
         console.error(error)
 
         return res.status(500).json({
-            erro:"Erro ao buscar os detalhes do pedido"
+            erro: "Erro ao buscar os detalhes do pedido"
         })
     }
 })
 
-router.put("/pedidos-admin/:id/status", autenticarToken, async (req,res) => {
+router.put("/pedidos-admin/:id/status", autenticarToken, async (req, res) => {
 
-    try{
+    try {
 
         const pedidoId = req.params.id
-        const {status} = req.body
+        const { status } = req.body
 
         const statusValido = [
             "pendente", "pago", "enviado", "entregue", "cancelado"
         ]
 
-        if(!statusValido.includes(status)) {
+        if (!statusValido.includes(status)) {
             return res.status(400).json({
-                erro:"Status inválido"
+                erro: "Status inválido"
             })
         }
 
-        const atualizacaoStatus = await db.query(`
+        const [atualizacaoStatus] = await db.query(`
             update pedidos set status_pedido = ? where id = ?  
         `, [status, pedidoId])
 
         if (atualizacaoStatus.affectedRows === 0) {
             return res.status(404).json({
-                erro:"Pedido não encontrado"
+                erro: "Pedido não encontrado"
             })
         }
 
+        // registra a mudança na timeline
+        await db.query(
+            `insert into historico_pedidos (pedido_id, status) values (?, ?)`,
+            [pedidoId, status]
+        )
+
         res.json({
-            mensagem:"Status do pedido atualizado com sucesso"
+            mensagem: "Status do pedido atualizado com sucesso"
         })
 
-        
-    } catch(error) {
+
+    } catch (error) {
         console.error(error)
 
         return res.status(500).json({
-            erro:"Erro ao atualizar o status do pedido"
+            erro: "Erro ao atualizar o status do pedido"
         })
     }
 })
@@ -355,9 +384,15 @@ router.get("/:id", autenticarToken, async (req, res) => {
         const [itens] = await db.query(`SELECT pi.*, p.nome, p.imagem FROM pedidos_itens pi INNER JOIN produtos p
              ON p.id = pi.produto_id WHERE pi.pedido_id = ?`, [pedidoId])
 
+        const [timeline] = await db.query(
+            `SELECT status, criado_em FROM historico_pedidos WHERE pedido_id = ? ORDER BY criado_em ASC`,
+            [pedidoId]
+        )
+
         res.json({
             pedido: pedido[0],
-            itens
+            itens,
+            timeline
         })
 
     } catch (error) {
