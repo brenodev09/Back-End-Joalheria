@@ -8,6 +8,7 @@ import produtosRoutes from "./produtos.routes.js"
 import dashboardRoutes from "./dashboard.routes.js"
 import carrinhoRoutes from "./carrinho.routes.js";
 import cuponsRoutes from "./cupons.routes.js";
+import colecoesRoutes from "./colecoes.routes.js"
 import pedidosRoutes from "./pedidos.routes.js"
 
 
@@ -28,6 +29,7 @@ routes.use("/materiais", materiaisRoutes)
 routes.use("/produtos", produtosRoutes)
 routes.use("/carrinho", carrinhoRoutes);
 routes.use("/dashboard", dashboardRoutes)
+routes.use("/colecoes", colecoesRoutes);
 routes.use("/cupons", cuponsRoutes)
 routes.use("/pedidos", pedidosRoutes)
 
