@@ -15,7 +15,36 @@ router.post("/", autenticarToken, async (req, res) => {
         await connection.beginTransaction()
         const usuarioId = req.usuario.id
 
-        const { formaPagamento, tipoEntrega, cupom } = req.body
+        const { formaPagamento, tipoEntrega, cupom, endereco, dadosCartao } = req.body
+
+        if (tipoEntrega !== "retirada") {
+            if (!endereco || !endereco.nome || !endereco.telefone || !endereco.endereco
+                || !endereco.numero || !endereco.bairro || !endereco.cidade || !endereco.uf || !endereco.cep) {
+                await connection.rollback()
+
+                return res.status(400).json({
+                    erro: "Endereço de entrega incompleto"
+                })
+            }
+        }
+
+        if (formaPagamento === "cartao") {
+            if (!dadosCartao || !dadosCartao.numero || !dadosCartao.nomeTitular || !dadosCartao.bandeira) {
+                await connection.rollback()
+
+                return res.status(400).json({
+                    erro: "Dados do cartão incompletos"
+                })
+            }
+        }
+
+        // nunca guardamos o número completo do cartão nem CVV/validade —
+        // só o suficiente pra exibir depois (ex: "final 1234")
+        const cartaoFinal = formaPagamento === "cartao"
+            ? String(dadosCartao.numero).replace(/\D/g, "").slice(-4)
+            : null
+        const cartaoBandeira = formaPagamento === "cartao" ? dadosCartao.bandeira : null
+        const cartaoNomeTitular = formaPagamento === "cartao" ? dadosCartao.nomeTitular : null
 
         const [carrinho] = await connection.query(`select * from carrinhos where usuario_id = ? `, [usuarioId])
 
@@ -120,8 +149,19 @@ router.post("/", autenticarToken, async (req, res) => {
 
         const [pedido] = await connection.query(`
           insert into pedidos (usuario_id, subtotal, desconto, frete, total, forma_pagamento, tipo_entrega,
-           prazo_entrega, cupom_id) values (?,?,?,?,?,?,?,?,?) `, [usuarioId, subtotal, desconto, frete, total, formaPagamento, tipoEntrega,
-            prazoEntrega, cupomId])
+           prazo_entrega, cupom_id, endereco_nome_destinatario, endereco_telefone, endereco_rua, endereco_numero,
+           endereco_bairro, endereco_cidade, endereco_estado, endereco_cep, cartao_bandeira, cartao_final, cartao_nome_titular)
+           values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) `, [usuarioId, subtotal, desconto, frete, total, formaPagamento, tipoEntrega,
+            prazoEntrega, cupomId,
+            tipoEntrega !== "retirada" ? endereco.nome : null,
+            tipoEntrega !== "retirada" ? endereco.telefone : null,
+            tipoEntrega !== "retirada" ? endereco.endereco : null,
+            tipoEntrega !== "retirada" ? endereco.numero : null,
+            tipoEntrega !== "retirada" ? endereco.bairro : null,
+            tipoEntrega !== "retirada" ? endereco.cidade : null,
+            tipoEntrega !== "retirada" ? endereco.uf : null,
+            tipoEntrega !== "retirada" ? endereco.cep : null,
+            cartaoBandeira, cartaoFinal, cartaoNomeTitular])
 
         // primeiro registro da timeline — mesmo status default ("pendente")
         // que a coluna status_pedido nasce com
@@ -173,6 +213,7 @@ router.post("/", autenticarToken, async (req, res) => {
 // metodo de leitura dos pedidos do usuario
 
 router.get("/meus-pedidos", autenticarToken, async (req, res) => {
+        console.log("USUARIO:", req.usuario)
 
     try {
         const usuarioId = req.usuario.id
@@ -300,8 +341,11 @@ router.get("/pedidos-admin/:id", autenticarToken, async (req, res) => {
             [pedidoId]
         )
 
+        // dados de cartão são só pro próprio usuário ver, admin não precisa
+        const { cartao_bandeira, cartao_final, cartao_nome_titular, ...pedidoSemCartao } = pedido[0]
+
         res.json({
-            pedido: pedido[0],
+            pedido: pedidoSemCartao,
             itens,
             timeline
         })
