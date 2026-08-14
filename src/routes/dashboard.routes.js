@@ -174,10 +174,54 @@ router.get("/resumo-vendas", async (req, res) =>{
             WHERE MONTH(criado_em) = MONTH(CURDATE())
             AND YEAR(criado_em) = YEAR(CURDATE())` )
 
+        
+        
+        const [vendasUltimos30Dias] = await db.query(`
+
+            WITH RECURSIVE dias AS (
+                SELECT CURDATE() - INTERVAL 29 DAY AS data
+                UNION ALL
+                SELECT data + INTERVAL 1 DAY
+                FROM dias
+                WHERE data < CURDATE()
+            )
+            SELECT dias.data,
+                COUNT(p.id) AS quantidade_vendas,
+                COALESCE(SUM(p.total), 0) AS faturamento
+            FROM dias
+            LEFT JOIN pedidos p
+                ON p.criado_em >= dias.data
+                AND p.criado_em < dias.data + INTERVAL 1 DAY
+                AND p.status_pedido IN ('pago', 'enviado', 'entregue')
+
+            GROUP BY dias.data
+            ORDER BY dias.data ASC
+
+        `)
+
+          const [pedidosPorStatus] = await db.query(`
+
+            SELECT
+                status_pedido AS status,
+                COUNT(*) AS quantidade
+
+            FROM pedidos
+
+            GROUP BY status_pedido
+
+            ORDER BY quantidade DESC
+
+        `)
+
 
         return res.json({
             vendasHoje:vendasHoje.total,
-            vendasMensal:vendasMensal.total 
+            vendasMensal:vendasMensal.total,
+            vendasUltimos30Dias,
+            pedidosPorStatus:pedidosPorStatus.map(item => ({
+                status:item.status,
+                quantidade: Number(item.quantidade)
+            }))
         })    
 
     } catch(error){
