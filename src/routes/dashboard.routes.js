@@ -163,9 +163,9 @@ router.get("/produtos-recentes", async (req, res) => {
 })
 
 
-router.get("/resumo-vendas", async (req, res) =>{
+router.get("/resumo-vendas", async (req, res) => {
 
-    try{
+    try {
 
         const [[vendasHoje]] = await db.query(`SELECT COUNT(*) AS total FROM pedidos WHERE DATE(criado_em) = CURDATE() `)
 
@@ -174,8 +174,8 @@ router.get("/resumo-vendas", async (req, res) =>{
             WHERE MONTH(criado_em) = MONTH(CURDATE())
             AND YEAR(criado_em) = YEAR(CURDATE())` )
 
-        
-        
+
+
         const [vendasUltimos30Dias] = await db.query(`
 
             WITH RECURSIVE dias AS (
@@ -199,7 +199,17 @@ router.get("/resumo-vendas", async (req, res) =>{
 
         `)
 
-          const [pedidosPorStatus] = await db.query(`
+        const [faturamentoBruto] = await db.query(`
+            select COALESCE(SUM(total), 0) AS faturamentoBruto from pedidos where status_pedido IN ("entregue")
+        `)
+
+        const [[totalProdutosVendidos]] = await db.query(`
+            SELECT  COALESCE(SUM(pi.quantidade), 0) AS totalProdutosVendidos FROM pedidos_itens pi
+             INNER JOIN pedidos p ON p.id = pi.pedido_id WHERE p.status_pedido IN ('pago', 'enviado', 'entregue')
+        `)
+
+       
+        const [pedidosPorStatus] = await db.query(`
 
             SELECT
                 status_pedido AS status,
@@ -215,20 +225,22 @@ router.get("/resumo-vendas", async (req, res) =>{
 
 
         return res.json({
-            vendasHoje:vendasHoje.total,
-            vendasMensal:vendasMensal.total,
+            vendasHoje: vendasHoje.total,
+            vendasMensal: vendasMensal.total,
             vendasUltimos30Dias,
-            pedidosPorStatus:pedidosPorStatus.map(item => ({
-                status:item.status,
+            faturamentoBruto:Number(faturamentoBruto.faturamentoBruto),
+            totalProdutosVendidos:Number(totalProdutosVendidos.totalProdutosVendidos),
+            pedidosPorStatus: pedidosPorStatus.map(item => ({
+                status: item.status,
                 quantidade: Number(item.quantidade)
             }))
-        })    
+        })
 
-    } catch(error){
+    } catch (error) {
         console.error(error)
 
         return res.status(500).json({
-            erro:"Erro ao carregar as vendas de hoje"
+            erro: "Erro ao carregar as vendas de hoje"
         })
     }
 })
