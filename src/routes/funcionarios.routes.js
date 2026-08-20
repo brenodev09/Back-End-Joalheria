@@ -4,6 +4,25 @@ import upload from "../../config/multer.js"
 
 const router = express.Router()
 
+// metodo de leitura dos funcionarios cadastrados
+
+router.get("/funcionarios-cadastrados", async (req, res) =>{
+    try{
+
+        const [funcionarios] = await db.query(`select * from funcionarios ORDER BY nome ASC ` )
+
+
+        res.json(funcionarios)
+
+    } catch(error){
+        console.error(error)
+        return res.status(500).json({
+            erro:"Erro ao buscar os funcionários cadastrados no sistema."
+        })
+    }
+})
+
+// metodo de adicionar o funcionario ao sistema
 router.post("/adicionar-funcionario", upload.single("foto"), async (req, res) => {
 
     try {
@@ -60,5 +79,7 @@ router.post("/adicionar-funcionario", upload.single("foto"), async (req, res) =>
 
     }
 })
+
+
 
 export default router
