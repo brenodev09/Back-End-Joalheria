@@ -145,5 +145,32 @@ router.put("/editar-funcionario/:id", upload.single("foto"), async (req, res) =>
 })
 
 
+// método de excluir um funcionário do sistema
+
+router.delete("/deletar-funcionario/:id", async (req, res) =>{
+    try{
+        const {id} = req.params
+
+        const [resultadoDelete] = await db.query(`delete from funcionarios where id = ?`, [id])
+
+        if(resultadoDelete.affectedRows === 0 ) {
+            return res.status(404).json({
+                erro:"Funcionário não encontrado"
+            })
+        }
+
+        return res.status(200).json({
+            mensagem: "Funcionário deletado com sucesso"
+        })
+
+    } catch(error){
+        console.error(error)
+        return res.status(500).json({
+            erro:"Erro ao deleter funcionário"
+        })
+    }
+})
+
+
 
 export default router

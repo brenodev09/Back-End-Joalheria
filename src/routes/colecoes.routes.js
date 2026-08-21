@@ -244,261 +244,261 @@ router.get("/publicas/ativas", async (req, res) => {
 // Retorna as coleções que o usuário pediu para ser avisado,
 // que JÁ estão ativas e que ainda não foram notificadas.
 // GET /colecoes/avisos/:usuarioId
-// router.get("/avisos/:usuarioId", async (req, res) => {
-//     try {
-//         const { usuarioId } = req.params;
+router.get("/avisos/:usuarioId", async (req, res) => {
+    try {
+        const { usuarioId } = req.params;
 
-//         const [colecoes] = await db.query(
-//             `
-//             SELECT
-//                 c.*,
-//                 ic.id AS interesse_id
-//             FROM interessados_colecao ic
-//             INNER JOIN colecoes c
-//                 ON c.id = ic.colecao_id
-//             WHERE ic.usuario_id = ?
-//               AND ic.notificado = 0
-//               AND c.ativo = 1
-//               AND (
-//                     c.permanente = 1
-//                     OR (
-//                         c.data_inicio IS NOT NULL
-//                         AND c.data_inicio <= CURDATE()
-//                         AND (c.data_fim IS NULL OR c.data_fim >= CURDATE())
-//                     )
-//               )
-//             ORDER BY c.data_inicio DESC
-//             `,
-//             [usuarioId]
-//         );
+        const [colecoes] = await db.query(
+            `
+            SELECT
+                c.*,
+                ic.id AS interesse_id
+            FROM interessados_colecao ic
+            INNER JOIN colecoes c
+                ON c.id = ic.colecao_id
+            WHERE ic.usuario_id = ?
+              AND ic.notificado = 0
+              AND c.ativo = 1
+              AND (
+                    c.permanente = 1
+                    OR (
+                        c.data_inicio IS NOT NULL
+                        AND c.data_inicio <= CURDATE()
+                        AND (c.data_fim IS NULL OR c.data_fim >= CURDATE())
+                    )
+              )
+            ORDER BY c.data_inicio DESC
+            `,
+            [usuarioId]
+        );
 
-//         res.json(colecoes.map(comStatus));
-//     } catch (error) {
-//         console.error("ERRO AO BUSCAR AVISOS:", error);
-//         res.status(500).json({
-//             erro: "Erro ao buscar avisos de lançamento"
-//         });
-//     }
-// });
+        res.json(colecoes.map(comStatus));
+    } catch (error) {
+        console.error("ERRO AO BUSCAR AVISOS:", error);
+        res.status(500).json({
+            erro: "Erro ao buscar avisos de lançamento"
+        });
+    }
+});
 
 // MARCAR AVISOS COMO NOTIFICADOS (ao fechar o modal).
 // Se vier colecao_ids no corpo, marca só essas; senão marca todas as pendentes.
 // PUT /colecoes/avisos/:usuarioId/notificar
-// router.put("/avisos/:usuarioId/notificar", async (req, res) => {
-//     try {
-//         const { usuarioId } = req.params;
-//         const { colecao_ids } = req.body;
+router.put("/avisos/:usuarioId/notificar", async (req, res) => {
+    try {
+        const { usuarioId } = req.params;
+        const { colecao_ids } = req.body;
 
-//         if (Array.isArray(colecao_ids) && colecao_ids.length > 0) {
-//             const ids = colecao_ids
-//                 .map(Number)
-//                 .filter((id) => Number.isInteger(id) && id > 0);
+        if (Array.isArray(colecao_ids) && colecao_ids.length > 0) {
+            const ids = colecao_ids
+                .map(Number)
+                .filter((id) => Number.isInteger(id) && id > 0);
 
-//             if (ids.length === 0) {
-//                 return res.status(400).json({
-//                     erro: "colecao_ids inválido"
-//                 });
-//             }
+            if (ids.length === 0) {
+                return res.status(400).json({
+                    erro: "colecao_ids inválido"
+                });
+            }
 
-//             const placeholders = ids.map(() => "?").join(",");
+            const placeholders = ids.map(() => "?").join(",");
 
-//             await db.query(
-//                 `
-//                 UPDATE interessados_colecao
-//                 SET notificado = 1
-//                 WHERE usuario_id = ?
-//                   AND colecao_id IN (${placeholders})
-//                 `,
-//                 [usuarioId, ...ids]
-//             );
-//         } else {
-//             await db.query(
-//                 `
-//                 UPDATE interessados_colecao
-//                 SET notificado = 1
-//                 WHERE usuario_id = ?
-//                 `,
-//                 [usuarioId]
-//             );
-//         }
+            await db.query(
+                `
+                UPDATE interessados_colecao
+                SET notificado = 1
+                WHERE usuario_id = ?
+                  AND colecao_id IN (${placeholders})
+                `,
+                [usuarioId, ...ids]
+            );
+        } else {
+            await db.query(
+                `
+                UPDATE interessados_colecao
+                SET notificado = 1
+                WHERE usuario_id = ?
+                `,
+                [usuarioId]
+            );
+        }
 
-//         res.json({
-//             mensagem: "Avisos marcados como notificados"
-//         });
-//     } catch (error) {
-//         console.error("ERRO AO NOTIFICAR AVISOS:", error);
-//         res.status(500).json({
-//             erro: "Erro ao atualizar avisos"
-//         });
-//     }
-// });
+        res.json({
+            mensagem: "Avisos marcados como notificados"
+        });
+    } catch (error) {
+        console.error("ERRO AO NOTIFICAR AVISOS:", error);
+        res.status(500).json({
+            erro: "Erro ao atualizar avisos"
+        });
+    }
+});
 
 // CADASTRAR INTERESSE ("Quero ser avisado").
 // POST /colecoes/:id/interessados   body: { usuario_id }
-// router.post("/:id/interessados", async (req, res) => {
-//     try {
-//         const { id } = req.params;
-//         const { usuario_id } = req.body;
+router.post("/:id/interessados", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { usuario_id } = req.body;
 
-//         if (!usuario_id) {
-//             return res.status(400).json({
-//                 erro: "usuario_id é obrigatório"
-//             });
-//         }
+        if (!usuario_id) {
+            return res.status(400).json({
+                erro: "usuario_id é obrigatório"
+            });
+        }
 
-//         const [colecao] = await db.query(
-//             `SELECT permitir_interessados FROM colecoes WHERE id = ?`,
-//             [id]
-//         );
+        const [colecao] = await db.query(
+            `SELECT permitir_interessados FROM colecoes WHERE id = ?`,
+            [id]
+        );
 
-//         if (colecao.length === 0) {
-//             return res.status(404).json({
-//                 erro: "Coleção não encontrada"
-//             });
-//         }
+        if (colecao.length === 0) {
+            return res.status(404).json({
+                erro: "Coleção não encontrada"
+            });
+        }
 
-//         if (Number(colecao[0].permitir_interessados) === 0) {
-//             return res.status(400).json({
-//                 erro: "Esta coleção não permite lista de interessados"
-//             });
-//         }
+        if (Number(colecao[0].permitir_interessados) === 0) {
+            return res.status(400).json({
+                erro: "Esta coleção não permite lista de interessados"
+            });
+        }
 
-//         // INSERT IGNORE evita erro caso o usuário clique duas vezes
-//         // (existe UNIQUE (usuario_id, colecao_id) no banco).
-//         await db.query(
-//             `
-//             INSERT IGNORE INTO interessados_colecao
-//             (usuario_id, colecao_id)
-//             VALUES (?, ?)
-//             `,
-//             [usuario_id, id]
-//         );
+        // INSERT IGNORE evita erro caso o usuário clique duas vezes
+        // (existe UNIQUE (usuario_id, colecao_id) no banco).
+        await db.query(
+            `
+            INSERT IGNORE INTO interessados_colecao
+            (usuario_id, colecao_id)
+            VALUES (?, ?)
+            `,
+            [usuario_id, id]
+        );
 
-//         res.status(201).json({
-//             mensagem: "Você será avisado quando a coleção for lançada"
-//         });
-//     } catch (error) {
-//         console.error("ERRO AO CADASTRAR INTERESSE:", error);
-//         res.status(500).json({
-//             erro: "Erro ao cadastrar interesse"
-//         });
-//     }
-// });
+        res.status(201).json({
+            mensagem: "Você será avisado quando a coleção for lançada"
+        });
+    } catch (error) {
+        console.error("ERRO AO CADASTRAR INTERESSE:", error);
+        res.status(500).json({
+            erro: "Erro ao cadastrar interesse"
+        });
+    }
+});
 
 // VERIFICAR SE O USUÁRIO JÁ É INTERESSADO.
 // GET /colecoes/:id/interessados/:usuarioId
-// router.get("/:id/interessados/:usuarioId", async (req, res) => {
-//     try {
-//         const { id, usuarioId } = req.params;
+router.get("/:id/interessados/:usuarioId", async (req, res) => {
+    try {
+        const { id, usuarioId } = req.params;
 
-//         const [registro] = await db.query(
-//             `
-//             SELECT id
-//             FROM interessados_colecao
-//             WHERE colecao_id = ?
-//               AND usuario_id = ?
-//             `,
-//             [id, usuarioId]
-//         );
+        const [registro] = await db.query(
+            `
+            SELECT id
+            FROM interessados_colecao
+            WHERE colecao_id = ?
+              AND usuario_id = ?
+            `,
+            [id, usuarioId]
+        );
 
-//         res.json({
-//             interessado: registro.length > 0
-//         });
-//     } catch (error) {
-//         console.error("ERRO AO VERIFICAR INTERESSE:", error);
-//         res.status(500).json({
-//             erro: "Erro ao verificar interesse"
-//         });
-//     }
-// });
+        res.json({
+            interessado: registro.length > 0
+        });
+    } catch (error) {
+        console.error("ERRO AO VERIFICAR INTERESSE:", error);
+        res.status(500).json({
+            erro: "Erro ao verificar interesse"
+        });
+    }
+});
 
 // REMOVER INTERESSE.
 // DELETE /colecoes/:id/interessados/:usuarioId
-// router.delete("/:id/interessados/:usuarioId", async (req, res) => {
-//     try {
-//         const { id, usuarioId } = req.params;
+router.delete("/:id/interessados/:usuarioId", async (req, res) => {
+    try {
+        const { id, usuarioId } = req.params;
 
-//         await db.query(
-//             `
-//             DELETE FROM interessados_colecao
-//             WHERE colecao_id = ?
-//               AND usuario_id = ?
-//             `,
-//             [id, usuarioId]
-//         );
+        await db.query(
+            `
+            DELETE FROM interessados_colecao
+            WHERE colecao_id = ?
+              AND usuario_id = ?
+            `,
+            [id, usuarioId]
+        );
 
-//         res.json({
-//             mensagem: "Interesse removido"
-//         });
-//     } catch (error) {
-//         console.error("ERRO AO REMOVER INTERESSE:", error);
-//         res.status(500).json({
-//             erro: "Erro ao remover interesse"
-//         });
-//     }
-// });
+        res.json({
+            mensagem: "Interesse removido"
+        });
+    } catch (error) {
+        console.error("ERRO AO REMOVER INTERESSE:", error);
+        res.status(500).json({
+            erro: "Erro ao remover interesse"
+        });
+    }
+});
 
 // ======================================================
 // BUSCAR COLEÇÃO COMPLETA (incrementa visualizações)
 // GET /colecoes/:id
 // ======================================================
 
-// router.get("/:id", async (req, res) => {
-//     try {
-//         const { id } = req.params;
+router.get("/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
 
-//         // Conta como 1 visualização real toda vez que os detalhes
-//         // da coleção são abertos (equivalente ao "Ver detalhes" da tela).
-//         await db.query(
-//             `
-//             UPDATE colecoes
-//             SET visualizacoes = visualizacoes + 1
-//             WHERE id = ?
-//             `,
-//             [id]
-//         );
+        // Conta como 1 visualização real toda vez que os detalhes
+        // da coleção são abertos (equivalente ao "Ver detalhes" da tela).
+        await db.query(
+            `
+            UPDATE colecoes
+            SET visualizacoes = visualizacoes + 1
+            WHERE id = ?
+            `,
+            [id]
+        );
 
-//         const [colecoes] = await db.query(`
-//             SELECT *
-//             FROM colecoes
-//             WHERE id = ?
-//         `, [id]);
+        const [colecoes] = await db.query(`
+            SELECT *
+            FROM colecoes
+            WHERE id = ?
+        `, [id]);
 
-//         if (colecoes.length === 0) {
-//             return res.status(404).json({
-//                 erro: "Coleção não encontrada"
-//             });
-//         }
+        if (colecoes.length === 0) {
+            return res.status(404).json({
+                erro: "Coleção não encontrada"
+            });
+        }
 
-//         // Produtos já respeitando a ordem definida na tabela de relacionamento.
-//         const [produtos] = await db.query(`
-//             SELECT
-//                 p.id,
-//                 p.nome,
-//                 p.preco,
-//                 p.imagem,
-//                 p.ativo,
-//                 p.destaque,
-//                 cp.ordem
-//             FROM produtos p
-//             INNER JOIN colecoes_produtos cp
-//                 ON cp.produto_id = p.id
-//             WHERE cp.colecao_id = ?
-//             ORDER BY cp.ordem ASC, p.id DESC
-//         `, [id]);
+        // Produtos já respeitando a ordem definida na tabela de relacionamento.
+        const [produtos] = await db.query(`
+            SELECT
+                p.id,
+                p.nome,
+                p.preco,
+                p.imagem,
+                p.ativo,
+                p.destaque,
+                cp.ordem
+            FROM produtos p
+            INNER JOIN colecoes_produtos cp
+                ON cp.produto_id = p.id
+            WHERE cp.colecao_id = ?
+            ORDER BY cp.ordem ASC, p.id DESC
+        `, [id]);
 
-//         res.json({
-//             ...comStatus(colecoes[0]),
-//             produtos
-//         });
+        res.json({
+            ...comStatus(colecoes[0]),
+            produtos
+        });
 
-//     } catch (error) {
-//         console.error("ERRO AO BUSCAR COLEÇÃO:", error);
-//         res.status(500).json({
-//             erro: "Erro ao buscar coleção"
-//         });
-//     }
-// });
+    } catch (error) {
+        console.error("ERRO AO BUSCAR COLEÇÃO:", error);
+        res.status(500).json({
+            erro: "Erro ao buscar coleção"
+        });
+    }
+});
 
 // ======================================================
 // CADASTRAR COLEÇÃO
