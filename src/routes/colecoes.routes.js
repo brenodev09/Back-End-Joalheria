@@ -471,6 +471,8 @@ router.get("/:id", async (req, res) => {
         }
 
         // Produtos já respeitando a ordem definida na tabela de relacionamento.
+        // "categoria" e "material" não existem como colunas em produtos —
+        // são FKs (categoria_id, material_id) para as tabelas categorias/materiais.
         const [produtos] = await db.query(`
             SELECT
                 p.id,
@@ -479,10 +481,16 @@ router.get("/:id", async (req, res) => {
                 p.imagem,
                 p.ativo,
                 p.destaque,
+                cat.nome AS categoria,
+                mat.nome AS material,
                 cp.ordem
             FROM produtos p
             INNER JOIN colecoes_produtos cp
                 ON cp.produto_id = p.id
+            LEFT JOIN categorias cat
+                ON cat.id = p.categoria_id
+            LEFT JOIN materiais mat
+                ON mat.id = p.material_id
             WHERE cp.colecao_id = ?
             ORDER BY cp.ordem ASC, p.id DESC
         `, [id]);
