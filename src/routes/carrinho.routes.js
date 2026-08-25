@@ -117,17 +117,28 @@ router.post("/", autenticarToken, async (req, res) => {
 
         const usuarioId = req.usuario.id;
 
-        const {
+        const produtoId =
+            req.body.produto_id ??
+            req.body.produtoId ??
+            req.body.productId ??
+            req.body.id;
 
-            produto_id,
+        const variacaoId =
+            req.body.variacao_id ??
+            req.body.variacaoId ??
+            req.body.variationId ??
+            req.body.variacao?.id ??
+            null;
 
-            quantidade = 1,
+        const quantidadeInformada =
+            req.body.quantidade ??
+            req.body.quantity ??
+            1;
 
-            variacao_id = null
+        const quantidadeNormalizada =
+            Number(quantidadeInformada);
 
-        } = req.body;
-
-        if (!produto_id) {
+        if (!produtoId) {
 
             return res.status(400).json({
 
@@ -135,6 +146,15 @@ router.post("/", autenticarToken, async (req, res) => {
 
             });
 
+        }
+
+        if (
+            !Number.isInteger(quantidadeNormalizada) ||
+            quantidadeNormalizada <= 0
+        ) {
+            return res.status(400).json({
+                erro: "Quantidade inválida."
+            });
         }
 
         // busca produto
@@ -155,7 +175,7 @@ WHERE id = ?
 
 `,
 
-            [produto_id]
+            [produtoId]
 
         );
 
@@ -173,16 +193,13 @@ WHERE id = ?
 
         // caso tenha variação
 
-        if (variacao_id) {
+        if (variacaoId) {
 
             const [variacao] = await pool.query(
 
                 `
 
 SELECT
-
-id,
-
 estoque
 
 FROM produto_variacoes
@@ -194,8 +211,8 @@ AND produto_id = ?
 `,
 
                 [
-                    variacao_id,
-                    produto_id
+                    variacaoId,
+                    produtoId
                 ]
 
             );
@@ -214,7 +231,7 @@ AND produto_id = ?
 
         }
 
-        if (quantidade > estoqueDisponivel) {
+        if (quantidadeNormalizada > estoqueDisponivel) {
 
             return res.status(400).json({
 
@@ -241,7 +258,6 @@ WHERE usuario_id = ?
             [usuarioId]
 
         );
-
         let carrinhoId;
 
         if (carrinho.length === 0) {
@@ -275,15 +291,10 @@ VALUES(?)
             `
 
 SELECT
-
 id,
-
 quantidade
-
 FROM carrinho_itens
-
 WHERE carrinho_id = ?
-
 AND produto_id = ?
 
 AND (
@@ -305,11 +316,11 @@ AND ? IS NULL
 
                 carrinhoId,
 
-                produto_id,
+                produtoId,
 
-                variacao_id,
+                variacaoId,
 
-                variacao_id
+                variacaoId
 
             ]
 
@@ -318,7 +329,7 @@ AND ? IS NULL
         if (itemExistente.length > 0) {
 
             const novaQuantidade =
-                itemExistente[0].quantidade + quantidade;
+                itemExistente[0].quantidade + quantidadeNormalizada;
 
             if (novaQuantidade > estoqueDisponivel) {
 
@@ -388,11 +399,11 @@ VALUES(?,?,?,?)
 
                 carrinhoId,
 
-                produto_id,
+                produtoId,
 
-                variacao_id,
+                variacaoId,
 
-                quantidade
+                quantidadeNormalizada
 
             ]
 

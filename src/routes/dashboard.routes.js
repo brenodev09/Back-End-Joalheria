@@ -1,7 +1,50 @@
 import express from "express"
 import db from "../database.js"
+import { autenticarToken } from "../middlewares/autenticacao.js"
 
 const router = express.Router()
+
+router.get("/atividades-recentes", autenticarToken, async (req, res) => {
+    try {
+        if (req.usuario?.tipo !== "admin") {
+            return res.status(403).json({
+                erro: "Acesso permitido somente para administradores"
+            })
+        }
+
+        const limite = Math.min(
+            Math.max(Number(req.query.limite) || 20, 1),
+            100
+        )
+
+        const [atividades] = await db.query(
+            `
+            SELECT
+                n.id,
+                n.usuario_id,
+                n.pedido_id,
+                n.tipo,
+                n.mensagem,
+                n.lida,
+                n.criado_em,
+                u.nome AS usuario_nome
+            FROM notificacoes n
+            LEFT JOIN usuarios u
+                ON u.id = n.usuario_id
+            ORDER BY n.criado_em DESC
+            LIMIT ?
+            `,
+            [limite]
+        )
+
+        return res.json(atividades)
+    } catch (error) {
+        console.error("ERRO AO CARREGAR ATIVIDADES:", error)
+        return res.status(500).json({
+            erro: "Erro ao carregar atividades recentes"
+        })
+    }
+})
 
 // ================================
 // MÉTRICAS GERAIS
