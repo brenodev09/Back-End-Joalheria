@@ -78,32 +78,37 @@ router.get("/metricas", async (req, res) => {
         `)
 
         const [colecoesMaisVendidas] = await db.query(`
-              SELECT
-  c.id,
-    c.nome,
-    SUM(pi.quantidade * pi.preco_unitario) AS faturamento,
-    SUM(pi.quantidade) AS produtosVendidos
-
-FROM pedidos_itens pi
-
-INNER JOIN colecoes_produtos cp
-    ON cp.produto_id = pi.produto_id
-
-INNER JOIN colecoes c
-    ON c.id = cp.colecao_id
-
-INNER JOIN pedidos ped
-    ON ped.id = pi.pedido_id
-
-WHERE ped.status_pedido IN ('pago', 'enviado', 'entregue')
-
-GROUP BY c.id, c.nome
-
-ORDER BY faturamento DESC
-
-LIMIT 5;
-            
+              SELECT c.id, c.nome,   SUM(pi.quantidade * pi.preco_unitario) AS faturamento,
+            SUM(pi.quantidade) AS produtosVendidos FROM pedidos_itens pi INNER JOIN colecoes_produtos cp
+             ON cp.produto_id = pi.produto_id INNER JOIN colecoes c ON c.id = cp.colecao_id INNER JOIN pedidos ped
+              ON ped.id = pi.pedido_id WHERE ped.status_pedido IN ('pago', 'enviado', 'entregue') GROUP BY c.id, c.nome
+            ORDER BY faturamento DESC LIMIT 5;
             `)
+
+        const [faturamentoCategorias] = await db.query(`
+            SELECT
+                c.id,
+                c.nome AS categoria,
+                SUM(pi.quantidade * pi.preco_unitario) AS faturamento,
+                SUM(pi.quantidade) AS produtosVendidos
+
+            FROM pedidos_itens pi
+
+            INNER JOIN produtos p
+                ON p.id = pi.produto_id
+
+            INNER JOIN categorias c
+                ON c.id = p.categoria_id
+
+            INNER JOIN pedidos ped
+                ON ped.id = pi.pedido_id
+
+            WHERE ped.status_pedido IN ('pago', 'enviado', 'entregue')
+
+            GROUP BY c.id, c.nome
+
+            ORDER BY faturamento DESC
+`)
 
         return res.json({
             totalProdutos: totalProdutos.total,
@@ -117,6 +122,13 @@ LIMIT 5;
                 faturamento: Number(colecao.faturamento),
                 produtosVendidos: Number(colecao.produtosVendidos)
 
+            })),
+
+            faturamentoCategorias: faturamentoCategorias.map(categoria => ({
+                id:categoria.id,
+                categoria:categoria.categoria,
+                faturamento: Number(categoria.faturamento),
+                produtosVendidos: Number(categoria.produtosVendidos)
             }))
         })
 
@@ -317,7 +329,7 @@ router.get("/resumo-vendas", async (req, res) => {
                 status: item.status,
                 quantidade: Number(item.quantidade)
             })),
-            ticketMedio:Number(ticketMedio.ticketMedio)
+            ticketMedio: Number(ticketMedio.ticketMedio)
         })
 
     } catch (error) {
