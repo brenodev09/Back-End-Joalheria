@@ -11,6 +11,7 @@ import cuponsRoutes from "./cupons.routes.js";
 import colecoesRoutes from "./colecoes.routes.js"
 import pedidosRoutes from "./pedidos.routes.js"
 import funcionariosRoutes from "./funcionarios.routes.js"
+import configuracoesRoutes from "./configuracoes.routes.js"
 
 
 
@@ -34,5 +35,7 @@ routes.use("/colecoes", colecoesRoutes);
 routes.use("/cupons", cuponsRoutes)
 routes.use("/pedidos", pedidosRoutes)
 routes.use("/funcionarios", funcionariosRoutes)
+routes.use("/configuracoes", configuracoesRoutes)
+routes.use("/admin/configuracoes", configuracoesRoutes)
 
 export default routes

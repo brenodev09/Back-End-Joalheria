@@ -22,6 +22,7 @@ import {
     enviarEmail,
     enviarEmailAdministradores
 } from "../services/notificacoes.js"
+import { statusEfetivoLoja } from "../services/configuracoes.js"
 
 
 const router = express.Router()
@@ -653,6 +654,16 @@ router.post(
     "/",
     autenticarToken,
     async (req, res) => {
+
+        const { status } = await statusEfetivoLoja()
+        if (status !== "online") {
+            return res.status(503).json({
+                erro: status === "maintenance"
+                    ? "A loja está em manutenção"
+                    : "A loja está fechada para novas operações",
+                status
+            })
+        }
 
         const connection =
             await db.getConnection()

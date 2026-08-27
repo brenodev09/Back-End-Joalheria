@@ -4,6 +4,7 @@ import pool from "../database.js"
 import jwt from "jsonwebtoken"
 import { autenticarToken } from "../middlewares/autenticacao.js"
 import upload from "../../config/multer.js"
+import { buscarConfiguracao } from "../services/configuracoes.js"
  
 const router = express.Router()
 
@@ -109,11 +110,56 @@ router.post("/login", async (req, res) =>{
             })
         }
 
-        const [resultado] = await pool.query(`select * from usuarios where email = ?`, [email])
+        const emailNormalizado = String(email).trim().toLowerCase()
+        const ip = req.ip?.slice(0, 45) || null
+        const identificadores = [emailNormalizado]
+        if (ip) identificadores.push(`ip:${ip}`)
+        const maxLoginAttempts = Number(await buscarConfiguracao("max_login_attempts"))
+        const temporaryLockMinutes = Number(await buscarConfiguracao("temporary_lock_minutes"))
+
+        const [bloqueios] = await pool.query(
+            `SELECT identificador, tentativas, bloqueado_ate
+             FROM login_bloqueios
+             WHERE identificador IN (?)`,
+            [identificadores]
+        )
+
+        const agora = Date.now()
+        for (const bloqueio of bloqueios) {
+            if (bloqueio.bloqueado_ate && new Date(bloqueio.bloqueado_ate).getTime() > agora) {
+                const retryAfter = Math.max(1, Math.ceil((new Date(bloqueio.bloqueado_ate).getTime() - agora) / 1000))
+                return res.status(429).json({
+                    erro: "Muitas tentativas. Aguarde antes de tentar novamente.",
+                    bloqueado: true,
+                    bloqueadoAte: bloqueio.bloqueado_ate,
+                    retryAfter
+                })
+            }
+            if (bloqueio.bloqueado_ate) {
+                await pool.query(
+                    `UPDATE login_bloqueios SET tentativas = 0, bloqueado_ate = NULL WHERE identificador = ?`,
+                    [bloqueio.identificador]
+                )
+            }
+        }
+
+        const [resultado] = await pool.query(
+            `select * from usuarios where lower(email) = ? limit 1`,
+            [emailNormalizado]
+        )
 
         const usuario = resultado[0]
 
         if(!usuario){
+            const bloqueio = await registrarTentativaFalha(
+                identificadores,
+                ip,
+                maxLoginAttempts,
+                temporaryLockMinutes
+            )
+            if (bloqueio) {
+                return res.status(429).json(bloqueio)
+            }
             return res.status(401).json({
                 erro:"Email ou senha inválidos"
             })
@@ -122,19 +168,35 @@ router.post("/login", async (req, res) =>{
         const senhaValida = await bcrypt.compare(senha, usuario.senha)
 
         if(!senhaValida) {
+            const bloqueio = await registrarTentativaFalha(
+                identificadores,
+                ip,
+                maxLoginAttempts,
+                temporaryLockMinutes
+            )
+            if (bloqueio) {
+                return res.status(429).json(bloqueio)
+            }
             return res.status(401).json({
-                erro:"A senha está inválida! Tente novamente."
+                erro:"Email ou senha inválidos"
             })
         }
 
+        await pool.query(
+            `UPDATE login_bloqueios
+             SET tentativas = 0, bloqueado_ate = NULL
+             WHERE identificador IN (?)`,
+            [identificadores]
+        )
+
         const { id, nome, tipo, criado_em, atualizado_em, foto_perfil} = usuario;
-        const token = jwt.sign({id,nome, email, tipo}, process.env.JWT_SECRET, {expiresIn: "1d"}) 
+        const token = jwt.sign({id,nome, email: usuario.email, tipo}, process.env.JWT_SECRET, {expiresIn: "1d"}) 
 
         return res.json({
             mensagem:"Login realizado com sucesso!",
             token, 
             usuario:{
-                id,nome, email, tipo, criado_em, atualizado_em, foto_perfil
+                id,nome, email: usuario.email, tipo, criado_em, atualizado_em, foto_perfil
             }
         })
 
@@ -147,6 +209,39 @@ router.post("/login", async (req, res) =>{
         })
     }
 })
+
+async function registrarTentativaFalha(identificadores, ip, maxLoginAttempts, temporaryLockMinutes) {
+    for (const identificador of identificadores) {
+        await pool.query(
+            `INSERT INTO login_bloqueios (identificador, tentativas, ultimo_ip)
+             VALUES (?, 1, ?)
+             ON DUPLICATE KEY UPDATE tentativas = tentativas + 1, ultimo_ip = ?`,
+            [identificador, ip, ip]
+        )
+    }
+
+    const [bloqueios] = await pool.query(
+        `SELECT identificador, tentativas
+         FROM login_bloqueios
+         WHERE identificador IN (?)`,
+        [identificadores]
+    )
+    const atingiuLimite = bloqueios.some((bloqueio) => bloqueio.tentativas >= maxLoginAttempts)
+    if (!atingiuLimite) return null
+
+    const bloqueadoAte = new Date(Date.now() + temporaryLockMinutes * 60 * 1000)
+    await pool.query(
+        `UPDATE login_bloqueios SET bloqueado_ate = ? WHERE identificador IN (?)`,
+        [bloqueadoAte, identificadores]
+    )
+
+    return {
+        erro: "Muitas tentativas. Aguarde antes de tentar novamente.",
+        bloqueado: true,
+        bloqueadoAte,
+        retryAfter: Math.max(1, Math.ceil(temporaryLockMinutes * 60))
+    }
+}
 
 
 // editar usuario
