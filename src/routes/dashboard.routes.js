@@ -77,11 +77,47 @@ router.get("/metricas", async (req, res) => {
             FROM produtos
         `)
 
+        const [colecoesMaisVendidas] = await db.query(`
+              SELECT
+  c.id,
+    c.nome,
+    SUM(pi.quantidade * pi.preco_unitario) AS faturamento,
+    SUM(pi.quantidade) AS produtosVendidos
+
+FROM pedidos_itens pi
+
+INNER JOIN colecoes_produtos cp
+    ON cp.produto_id = pi.produto_id
+
+INNER JOIN colecoes c
+    ON c.id = cp.colecao_id
+
+INNER JOIN pedidos ped
+    ON ped.id = pi.pedido_id
+
+WHERE ped.status_pedido IN ('pago', 'enviado', 'entregue')
+
+GROUP BY c.id, c.nome
+
+ORDER BY faturamento DESC
+
+LIMIT 5;
+            
+            `)
+
         return res.json({
             totalProdutos: totalProdutos.total,
             produtosAtivos: produtosAtivos.total,
             valorEstoque: valorEstoque.total,
-            itensEstoque: itensEstoque.total
+            itensEstoque: itensEstoque.total,
+
+            colecoesMaisVendidas: colecoesMaisVendidas.map(colecao => ({
+                id: colecao.id,
+                nome: colecao.nome,
+                faturamento: Number(colecao.faturamento),
+                produtosVendidos: Number(colecao.produtosVendidos)
+
+            }))
         })
 
     } catch (error) {
@@ -206,6 +242,7 @@ router.get("/produtos-recentes", async (req, res) => {
 })
 
 
+// métricas gerais de vendas 
 router.get("/resumo-vendas", async (req, res) => {
 
     try {
@@ -251,7 +288,7 @@ router.get("/resumo-vendas", async (req, res) => {
              INNER JOIN pedidos p ON p.id = pi.pedido_id WHERE p.status_pedido IN ('pago', 'enviado', 'entregue')
         `)
 
-       
+
         const [pedidosPorStatus] = await db.query(`
 
             SELECT
@@ -266,17 +303,21 @@ router.get("/resumo-vendas", async (req, res) => {
 
         `)
 
+        const [[ticketMedio]] = await db.query(`select coalesce(AVG(total), 0 ) AS ticketMedio
+             from pedidos where status_pedido IN ('entregue')`)
+
 
         return res.json({
             vendasHoje: vendasHoje.total,
             vendasMensal: vendasMensal.total,
             vendasUltimos30Dias,
-            faturamentoBruto:Number(faturamentoBruto.faturamentoBruto),
-            totalProdutosVendidos:Number(totalProdutosVendidos.totalProdutosVendidos),
+            faturamentoBruto: Number(faturamentoBruto.faturamentoBruto),
+            totalProdutosVendidos: Number(totalProdutosVendidos.totalProdutosVendidos),
             pedidosPorStatus: pedidosPorStatus.map(item => ({
                 status: item.status,
                 quantidade: Number(item.quantidade)
-            }))
+            })),
+            ticketMedio:Number(ticketMedio.ticketMedio)
         })
 
     } catch (error) {
