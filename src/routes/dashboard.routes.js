@@ -125,8 +125,8 @@ router.get("/metricas", async (req, res) => {
             })),
 
             faturamentoCategorias: faturamentoCategorias.map(categoria => ({
-                id:categoria.id,
-                categoria:categoria.categoria,
+                id: categoria.id,
+                categoria: categoria.categoria,
                 faturamento: Number(categoria.faturamento),
                 produtosVendidos: Number(categoria.produtosVendidos)
             }))
@@ -319,17 +319,44 @@ router.get("/resumo-vendas", async (req, res) => {
              from pedidos where status_pedido IN ('entregue')`)
 
 
+        const [produtosMaisVendidos] = await db.query(`
+                  SELECT
+                    p.id,
+                    p.nome,
+                    SUM(pi.quantidade) AS totalVendas,
+                    SUM(pi.quantidade * pi.preco_unitario) AS faturamento
+                FROM pedidos_itens pi
+                INNER JOIN produtos p
+                    ON p.id = pi.produto_id
+                INNER JOIN pedidos ped
+                    ON ped.id = pi.pedido_id
+                WHERE ped.status_pedido IN ('pago','enviado','entregue')
+                GROUP BY p.id, p.nome
+                ORDER BY totalVendas DESC
+                LIMIT 5  
+            
+            `)
+
         return res.json({
             vendasHoje: vendasHoje.total,
             vendasMensal: vendasMensal.total,
             vendasUltimos30Dias,
             faturamentoBruto: Number(faturamentoBruto.faturamentoBruto),
             totalProdutosVendidos: Number(totalProdutosVendidos.totalProdutosVendidos),
+
             pedidosPorStatus: pedidosPorStatus.map(item => ({
                 status: item.status,
                 quantidade: Number(item.quantidade)
             })),
-            ticketMedio: Number(ticketMedio.ticketMedio)
+
+            ticketMedio: Number(ticketMedio.ticketMedio),
+            
+            produtosMaisVendidos: produtosMaisVendidos.map(produto => ({
+                id:produto.id,
+                nome:produto.nome,
+                totalVendas: Number(produto.totalVendas),
+                faturamento: Number(produto.faturamento)
+            }))
         })
 
     } catch (error) {
