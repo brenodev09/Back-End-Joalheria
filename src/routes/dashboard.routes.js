@@ -350,10 +350,10 @@ router.get("/resumo-vendas", async (req, res) => {
             })),
 
             ticketMedio: Number(ticketMedio.ticketMedio),
-            
+
             produtosMaisVendidos: produtosMaisVendidos.map(produto => ({
-                id:produto.id,
-                nome:produto.nome,
+                id: produto.id,
+                nome: produto.nome,
                 totalVendas: Number(produto.totalVendas),
                 faturamento: Number(produto.faturamento)
             }))
@@ -364,6 +364,203 @@ router.get("/resumo-vendas", async (req, res) => {
 
         return res.status(500).json({
             erro: "Erro ao carregar as vendas de hoje"
+        })
+    }
+})
+
+
+// ROTAS RELACIONADAS A META MENSAL //
+
+
+router.post("/metas-mensais", async (req, res) => {
+    try {
+        const { mes, ano, valor_meta, descricao } = req.body
+
+        if (!mes || !ano || !valor_meta) {
+            return res.status(400).json({
+                erro: "Preencha os campos mês, ano e meta para prosseguir"
+            })
+        }
+
+        if (mes < 1 || mes > 12) {
+            return res.status(400).json({
+                erro: "O mês deve ser um valor entre 1 e 12"
+            })
+        }
+
+        const sql = `insert into metas_faturamento (mes, ano, valor_meta, descricao) values (?,?,?,?)`
+        const [resultado] = await db.query(sql, [mes, ano, valor_meta, descricao])
+
+        const id_meta = resultado.insertId
+        const [metaCriada] = await db.query(`select * from metas_faturamento where id = ?`, [id_meta])
+
+        return res.status(201).json(metaCriada[0])
+
+    } catch (error) {
+        if (error.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({
+                erro: "Já existe uma meta cadastrada para esse mês/ano"
+            })
+        }
+
+        console.error(error)
+        return res.status(500).json({
+            erro: "Erro ao criar a meta do mês"
+        })
+    }
+})
+
+
+
+router.put("/dashboard/metas-mensais/:id", async (req, res) => {
+    try {
+        const { id } = req.params
+        const { mes, ano, valor_meta, descricao } = req.body
+
+        if (!mes || !ano || !valor_meta) {
+            return res.status(400).json({
+                erro: "Preencha os campos mês, ano e meta para prosseguir"
+            })
+        }
+
+        if (mes < 1 || mes > 12) {
+            return res.status(400).json({
+                erro: "O mês deve ser um valor entre 1 e 12"
+            })
+        }
+
+        const sql = `update metas_faturamento 
+                     set mes = ?, ano = ?, valor_meta = ?, descricao = ?
+                     where id = ?`
+
+        const [resultado] = await db.query(sql, [mes, ano, valor_meta, descricao, id])
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({
+                erro: "Meta não encontrada"
+            })
+        }
+
+        const [metaAtualizada] = await db.query(`select * from metas_faturamento where id = ?`, [id])
+
+        return res.json(metaAtualizada[0])
+
+    } catch (error) {
+        if (error.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({
+                erro: "Já existe uma meta cadastrada para esse mês/ano"
+            })
+        }
+
+        console.error(error)
+        return res.status(500).json({
+            erro: "Erro ao editar a meta do mês"
+        })
+    }
+})
+
+
+
+router.delete("/dashboard/metas-mensais/:id", async (req, res) => {
+    try {
+        const { id } = req.params
+
+        const [resultado] = await db.query(
+            `delete from metas_faturamento where id = ?`,
+            [id]
+        )
+
+        if (resultado.affectedRows === 0) {
+            return res.status(404).json({
+                erro: "Meta não encontrada"
+            })
+        }
+
+        return res.status(200).json({
+            mensagem: "Meta excluída com sucesso"
+        })
+
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json({
+            erro: "Erro ao excluir a meta do mês"
+        })
+    }
+})
+
+
+
+router.get("/dashboard/metas-mensais", async (req, res) => {
+    try {
+        const [metas] = await db.query(
+            `select * from metas_faturamento order by ano desc, mes desc`
+        )
+
+        return res.json(metas)
+
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json({
+            erro: "Erro ao carregar as metas"
+        })
+    }
+})
+
+
+
+router.get("/dashboard/metas-mensais/atual", async (req, res) => {
+    try {
+        const hoje = new Date()
+        const mesAtual = hoje.getMonth() + 1
+        const anoAtual = hoje.getFullYear()
+
+        const [metas] = await db.query(
+            `select * from metas_faturamento where mes = ? and ano = ?`,
+            [mesAtual, anoAtual]
+        )
+
+        if (metas.length === 0) {
+            return res.status(404).json({
+                erro: "Nenhuma meta cadastrada para o mês atual"
+            })
+        }
+
+        const meta = metas[0]
+
+        const [[faturamentoMes]] = await db.query(
+            `select coalesce(sum(total), 0) as faturamento
+             from pedidos
+             where status_pedido IN ('entregue')
+               and MONTH(criado_em) = ?
+               and YEAR(criado_em) = ?`,
+            [mesAtual, anoAtual]
+        )
+
+        const valorMeta = Number(meta.valor_meta)
+        const faturamentoAtual = Number(faturamentoMes.faturamento)
+
+        const percentual = valorMeta > 0
+            ? Number(((faturamentoAtual / valorMeta) * 100).toFixed(1))
+            : 0
+
+        const faltam = Math.max(valorMeta - faturamentoAtual, 0)
+
+        return res.json({
+            id: meta.id,
+            mes: meta.mes,
+            ano: meta.ano,
+            descricao: meta.descricao,
+            valorMeta,
+            faturamentoAtual,
+            percentual,
+            faltam,
+            metaAtingida: faturamentoAtual >= valorMeta
+        })
+
+    } catch (error) {
+        console.error(error)
+        return res.status(500).json({
+            erro: "Erro ao carregar a meta do mês atual"
         })
     }
 })
