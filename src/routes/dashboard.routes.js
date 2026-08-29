@@ -81,7 +81,7 @@ router.get("/metricas", async (req, res) => {
               SELECT c.id, c.nome,   SUM(pi.quantidade * pi.preco_unitario) AS faturamento,
             SUM(pi.quantidade) AS produtosVendidos FROM pedidos_itens pi INNER JOIN colecoes_produtos cp
              ON cp.produto_id = pi.produto_id INNER JOIN colecoes c ON c.id = cp.colecao_id INNER JOIN pedidos ped
-              ON ped.id = pi.pedido_id WHERE ped.status_pedido IN ('pago', 'enviado', 'entregue') GROUP BY c.id, c.nome
+              ON ped.id = pi.pedido_id WHERE ped.status_pedido IN ( 'entregue') GROUP BY c.id, c.nome
             ORDER BY faturamento DESC LIMIT 5;
             `)
 
@@ -103,7 +103,7 @@ router.get("/metricas", async (req, res) => {
             INNER JOIN pedidos ped
                 ON ped.id = pi.pedido_id
 
-            WHERE ped.status_pedido IN ('pago', 'enviado', 'entregue')
+            WHERE ped.status_pedido IN ('entregue')
 
             GROUP BY c.id, c.nome
 
@@ -297,7 +297,7 @@ router.get("/resumo-vendas", async (req, res) => {
 
         const [[totalProdutosVendidos]] = await db.query(`
             SELECT  COALESCE(SUM(pi.quantidade), 0) AS totalProdutosVendidos FROM pedidos_itens pi
-             INNER JOIN pedidos p ON p.id = pi.pedido_id WHERE p.status_pedido IN ('pago', 'enviado', 'entregue')
+             INNER JOIN pedidos p ON p.id = pi.pedido_id WHERE p.status_pedido IN ( 'entregue')
         `)
 
 
@@ -330,7 +330,7 @@ router.get("/resumo-vendas", async (req, res) => {
                     ON p.id = pi.produto_id
                 INNER JOIN pedidos ped
                     ON ped.id = pi.pedido_id
-                WHERE ped.status_pedido IN ('pago','enviado','entregue')
+                WHERE ped.status_pedido IN ('entregue')
                 GROUP BY p.id, p.nome
                 ORDER BY totalVendas DESC
                 LIMIT 5  
@@ -412,7 +412,7 @@ router.post("/metas-mensais", async (req, res) => {
 
 
 
-router.put("/dashboard/metas-mensais/:id", async (req, res) => {
+router.put("/metas-mensais/:id", async (req, res) => {
     try {
         const { id } = req.params
         const { mes, ano, valor_meta, descricao } = req.body
@@ -461,7 +461,7 @@ router.put("/dashboard/metas-mensais/:id", async (req, res) => {
 
 
 
-router.delete("/dashboard/metas-mensais/:id", async (req, res) => {
+router.delete("/metas-mensais/:id", async (req, res) => {
     try {
         const { id } = req.params
 
@@ -490,7 +490,7 @@ router.delete("/dashboard/metas-mensais/:id", async (req, res) => {
 
 
 
-router.get("/dashboard/metas-mensais", async (req, res) => {
+router.get("/metas-mensais", async (req, res) => {
     try {
         const [metas] = await db.query(
             `select * from metas_faturamento order by ano desc, mes desc`
@@ -508,7 +508,7 @@ router.get("/dashboard/metas-mensais", async (req, res) => {
 
 
 
-router.get("/dashboard/metas-mensais/atual", async (req, res) => {
+router.get("/metas-mensais/atual", async (req, res) => {
     try {
         const hoje = new Date()
         const mesAtual = hoje.getMonth() + 1
