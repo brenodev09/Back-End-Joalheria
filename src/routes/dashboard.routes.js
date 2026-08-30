@@ -496,7 +496,39 @@ router.get("/metas-mensais", async (req, res) => {
             `select * from metas_faturamento order by ano desc, mes desc`
         )
 
-        return res.json(metas)
+        const metasComResultado = await Promise.all(
+            metas.map(async (meta) => {
+                const [[faturamentoMes]] = await db.query(
+                    `select coalesce(sum(total), 0) as faturamento
+                     from pedidos
+                     where status_pedido IN ('entregue')
+                       and MONTH(criado_em) = ?
+                       and YEAR(criado_em) = ?`,
+                    [meta.mes, meta.ano]
+                )
+
+                const valorMeta = Number(meta.valor_meta)
+                const faturamentoAtual = Number(faturamentoMes.faturamento)
+                const percentual = valorMeta > 0
+                    ? Number(((faturamentoAtual / valorMeta) * 100).toFixed(1))
+                    : 0
+                const faltam = Math.max(valorMeta - faturamentoAtual, 0)
+
+                return {
+                    id: meta.id,
+                    mes: meta.mes,
+                    ano: meta.ano,
+                    descricao: meta.descricao,
+                    valorMeta,
+                    faturamentoAtual,
+                    percentual,
+                    faltam,
+                    metaAtingida: faturamentoAtual >= valorMeta
+                }
+            })
+        )
+
+        return res.json(metasComResultado)
 
     } catch (error) {
         console.error(error)
@@ -505,7 +537,6 @@ router.get("/metas-mensais", async (req, res) => {
         })
     }
 })
-
 
 
 router.get("/metas-mensais/atual", async (req, res) => {
