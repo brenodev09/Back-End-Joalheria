@@ -1,12 +1,14 @@
 import express from "express"
 import db from "../database.js"
 import upload from "../../config/multer.js"
+import { autenticarToken } from "../middlewares/autenticacao.js"
+import { apenasAdmin } from "../middlewares/autorizacao.js"
 
 const router = express.Router()
 
 // metodo de leitura dos funcionarios cadastrados
 
-router.get("/funcionarios-cadastrados", async (req, res) => {
+router.get("/funcionarios-cadastrados", autenticarToken, apenasAdmin, async (req, res) => {
     try {
 
         const [funcionarios] = await db.query(`select * from funcionarios ORDER BY nome ASC `)
@@ -23,7 +25,7 @@ router.get("/funcionarios-cadastrados", async (req, res) => {
 })
 
 // metodo de adicionar o funcionario ao sistema
-router.post("/adicionar-funcionario", upload.single("foto"), async (req, res) => {
+router.post("/adicionar-funcionario", autenticarToken, apenasAdmin, upload.single("foto"), async (req, res) => {
 
     try {
         const { nome, email, cargo, telefone, ativo } = req.body
@@ -84,7 +86,7 @@ router.post("/adicionar-funcionario", upload.single("foto"), async (req, res) =>
 
 // metodo de editar o funionario cadastrado no sistema
 
-router.put("/editar-funcionario/:id", upload.single("foto"), async (req, res) => {
+router.put("/editar-funcionario/:id", autenticarToken, apenasAdmin, upload.single("foto"), async (req, res) => {
 
     try {
 
@@ -147,7 +149,7 @@ router.put("/editar-funcionario/:id", upload.single("foto"), async (req, res) =>
 
 // método de excluir um funcionário do sistema
 
-router.delete("/deletar-funcionario/:id", async (req, res) =>{
+router.delete("/deletar-funcionario/:id", autenticarToken, apenasAdmin, async (req, res) =>{
     try{
         const {id} = req.params
 

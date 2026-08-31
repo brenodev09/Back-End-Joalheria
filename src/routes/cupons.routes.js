@@ -30,6 +30,12 @@ function normalizarDados(body) {
     const valorMinimo = Number(body.valor_minimo ?? body.valorMinimo ?? 0)
     const quantidadeUso =
         body.quantidade_uso ?? body.quantidadeUso ?? body.limiteUso ?? null
+    const normalizarData = (valor) => {
+        if (valor === undefined || valor === null || String(valor).trim() === "") return null
+        const texto = String(valor).trim()
+        if (/^\d{4}-\d{2}-\d{2}T/.test(texto)) return texto.replace("T", " ").replace(/Z$/, "").slice(0, 19)
+        return texto.slice(0, 19)
+    }
 
     return {
         codigo: String(body.codigo || "").trim().toUpperCase(),
@@ -44,8 +50,8 @@ function normalizarDados(body) {
         ativo: body.ativo === undefined
             ? true
             : body.ativo === true || body.ativo === 1 || body.ativo === "true",
-        dataInicio: body.data_inicio ?? body.dataInicio ?? null,
-        dataFim: body.data_fim ?? body.dataFim ?? body.dataExpiracao ?? body.data_expiracao ?? null
+        dataInicio: normalizarData(body.data_inicio ?? body.dataInicio),
+        dataFim: normalizarData(body.data_fim ?? body.dataFim ?? body.dataExpiracao ?? body.data_expiracao)
     }
 }
 
@@ -86,9 +92,23 @@ function validarDados(dados) {
     if (
         dados.dataInicio &&
         dados.dataFim &&
-        new Date(dados.dataFim) < new Date(dados.dataInicio)
+        (!Number.isFinite(new Date(dados.dataInicio).getTime()) ||
+            !Number.isFinite(new Date(dados.dataFim).getTime()))
+    ) {
+        return "As datas do cupom são inválidas"
+    }
+    if (
+        dados.dataInicio &&
+        dados.dataFim &&
+        new Date(dados.dataFim).getTime() < new Date(dados.dataInicio).getTime()
     ) {
         return "A data final não pode ser anterior à data inicial"
+    }
+    if (dados.dataInicio && !Number.isFinite(new Date(dados.dataInicio).getTime())) {
+        return "A data inicial é inválida"
+    }
+    if (dados.dataFim && !Number.isFinite(new Date(dados.dataFim).getTime())) {
+        return "A data final é inválida"
     }
     return null
 }
@@ -127,8 +147,8 @@ router.get(
                 `
                 SELECT
                     COUNT(*) AS total,
-                    SUM(ativo = TRUE AND (data_fim IS NULL OR data_fim >= NOW())) AS ativos,
-                    SUM(data_fim IS NOT NULL AND data_fim < NOW()) AS expirados,
+                    SUM(ativo = TRUE AND (data_fim IS NULL OR data_fim >= CURRENT_DATE())) AS ativos,
+                    SUM(data_fim IS NOT NULL AND data_fim < CURRENT_DATE()) AS expirados,
                     COALESCE(SUM(usado), 0) AS total_usos,
                     (SELECT codigo FROM cupons ORDER BY usado DESC, id ASC LIMIT 1) AS mais_utilizado
                 FROM cupons
@@ -149,25 +169,6 @@ router.get(
     async (req, res) => {
         try {
             const usuarioId = req.usuario.id
-            const [carrinho] = await db.query(
-                `SELECT id FROM carrinhos WHERE usuario_id = ?`,
-                [usuarioId]
-            )
-
-            const carrinhoId = carrinho[0]?.id || 0
-            const [[totais]] = await db.query(
-                `
-                SELECT COALESCE(
-                    SUM(COALESCE(pv.preco, p.preco) * ci.quantidade),
-                    0
-                ) AS subtotal
-                FROM carrinho_itens ci
-                INNER JOIN produtos p ON p.id = ci.produto_id
-                LEFT JOIN produto_variacoes pv ON pv.id = ci.variacao_id
-                WHERE ci.carrinho_id = ?
-                `,
-                [carrinhoId]
-            )
 
             const [cupons] = await db.query(
                 `
@@ -183,8 +184,7 @@ router.get(
                 FROM cupons c
                 WHERE c.ativo = TRUE
                 AND (c.data_inicio IS NULL OR c.data_inicio <= NOW())
-                AND (c.data_fim IS NULL OR c.data_fim >= NOW())
-                AND c.valor_minimo <= ?
+                AND (c.data_fim IS NULL OR DATE(c.data_fim) >= CURRENT_DATE())
                 AND (c.quantidade_uso IS NULL OR c.usado < c.quantidade_uso)
                 AND (
                     c.limite_por_cliente IS NULL
@@ -195,41 +195,9 @@ router.get(
                         AND u.usuario_id = ?
                     ) < c.limite_por_cliente
                 )
-                AND (
-                    (
-                        NOT EXISTS (
-                            SELECT 1 FROM cupons_produtos cp
-                            WHERE cp.cupom_id = c.id
-                        )
-                        AND NOT EXISTS (
-                            SELECT 1 FROM cupons_colecoes cc
-                            WHERE cc.cupom_id = c.id
-                        )
-                    )
-                    OR EXISTS (
-                        SELECT 1
-                        FROM carrinho_itens ci
-                        WHERE ci.carrinho_id = ?
-                        AND (
-                            EXISTS (
-                                SELECT 1 FROM cupons_produtos cp
-                                WHERE cp.cupom_id = c.id
-                                AND cp.produto_id = ci.produto_id
-                            )
-                            OR EXISTS (
-                                SELECT 1
-                                FROM cupons_colecoes cc
-                                INNER JOIN colecoes_produtos cop
-                                    ON cop.colecao_id = cc.colecao_id
-                                WHERE cc.cupom_id = c.id
-                                AND cop.produto_id = ci.produto_id
-                            )
-                        )
-                    )
-                )
                 ORDER BY c.criado_em DESC
                 `,
-                [usuarioId, totais.subtotal, carrinhoId]
+                [usuarioId]
             )
 
             return res.json(cupons)
@@ -238,6 +206,29 @@ router.get(
             return res.status(500).json({
                 erro: "Erro ao listar cupons disponíveis"
             })
+        }
+    }
+)
+
+router.get(
+    "/:id",
+    autenticarToken,
+    apenasAdmin,
+    async (req, res) => {
+        try {
+            const [cupons] = await db.query(
+                `SELECT * FROM cupons WHERE id = ? LIMIT 1`,
+                [req.params.id]
+            )
+
+            if (!cupons.length) {
+                return res.status(404).json({ erro: "Cupom não encontrado" })
+            }
+
+            return res.json(cupons[0])
+        } catch (error) {
+            console.error("ERRO AO BUSCAR CUPOM:", error)
+            return res.status(500).json({ erro: "Erro ao buscar cupom" })
         }
     }
 )
@@ -321,15 +312,15 @@ router.put(
                 ]
             )
 
-            if (!resultado.affectedRows) {
-                return res.status(404).json({ erro: "Cupom não encontrado" })
-            }
-
-            const [cupom] = await db.query(
+            const [cupomAtualizado] = await db.query(
                 "SELECT * FROM cupons WHERE id = ?",
                 [req.params.id]
             )
-            return res.json(cupom[0])
+            if (!cupomAtualizado.length) {
+                return res.status(404).json({ erro: "Cupom não encontrado" })
+            }
+
+            return res.json(cupomAtualizado[0])
         } catch (error) {
             if (error.code === "ER_DUP_ENTRY") {
                 return res.status(409).json({ erro: "Este código já existe" })
@@ -413,7 +404,7 @@ router.post(
                 WHERE codigo = ?
                 AND ativo = TRUE
                 AND (data_inicio IS NULL OR data_inicio <= NOW())
-                AND (data_fim IS NULL OR data_fim >= NOW())
+                AND (data_fim IS NULL OR DATE(data_fim) >= CURRENT_DATE())
                 AND (quantidade_uso IS NULL OR usado < quantidade_uso)
                 `,
                 [codigo]

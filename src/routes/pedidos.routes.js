@@ -23,6 +23,7 @@ import {
     enviarEmailAdministradores
 } from "../services/notificacoes.js"
 import { statusEfetivoLoja } from "../services/configuracoes.js"
+import { validarConfiguracao } from "../services/personalizacoes.js"
 
 
 const router = express.Router()
@@ -44,6 +45,13 @@ const prazoPagamentoMinutos =
 
 
 function obterPrecoItem(item) {
+
+    if (
+        item.preco_personalizado !== null &&
+        item.preco_personalizado !== undefined
+    ) {
+        return Number(item.preco_personalizado)
+    }
 
     if (item.variacao_id) {
 
@@ -983,6 +991,10 @@ router.post(
 
                         ci.quantidade,
 
+                        ci.configuracao,
+
+                        ci.preco_personalizado,
+
                         p.nome,
 
                         p.preco
@@ -1060,6 +1072,28 @@ router.post(
             // ==================================================
             // VARIAÇÕES
             // ==================================================
+
+            for (const item of itensCarrinho) {
+                if (!item.configuracao) continue
+                let configuracao
+                try {
+                    configuracao = typeof item.configuracao === "string"
+                        ? JSON.parse(item.configuracao)
+                        : item.configuracao
+                    const calculo = await validarConfiguracao(item.produto_id, configuracao, connection)
+                    item.preco_personalizado = calculo.precoFinal
+                    item.configuracao_snapshot = {
+                        produto: calculo.produto,
+                        opcoes: calculo.configuracao,
+                        precoBase: calculo.precoBase,
+                        adicionais: calculo.adicionais,
+                        precoFinal: calculo.precoFinal
+                    }
+                } catch (erro) {
+                    await connection.rollback()
+                    return res.status(erro.statusCode || 422).json({ erro: `Configuração inválida para ${item.nome}: ${erro.message}` })
+                }
+            }
 
             for (
                 const item of itensCarrinho
@@ -1232,6 +1266,10 @@ router.post(
                         WHERE codigo = ?
 
                         AND ativo = TRUE
+
+                        AND (data_inicio IS NULL OR data_inicio <= NOW())
+
+                        AND (data_fim IS NULL OR DATE(data_fim) >= CURRENT_DATE())
 
                         FOR UPDATE
                         `,
@@ -2219,11 +2257,13 @@ router.post(
 
                         preco_unitario,
 
-                        subtotal
+                        subtotal,
+
+                        configuracao_snapshot
                     )
 
                     VALUES
-                    (?, ?, ?, ?, ?, ?)
+                    (?, ?, ?, ?, ?, ?, ?)
                     `,
                     [
                         pedidoId,
@@ -2237,7 +2277,11 @@ router.post(
 
                         preco,
 
-                        subtotalItem
+                        subtotalItem,
+
+                        item.configuracao_snapshot
+                            ? JSON.stringify(item.configuracao_snapshot)
+                            : null
                     ]
                 )
             }
@@ -3026,6 +3070,8 @@ router.get(
                         pi.preco_unitario,
 
                         pi.subtotal,
+
+                        pi.configuracao_snapshot,
 
                         p.nome,
 

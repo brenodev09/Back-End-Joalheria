@@ -3,6 +3,7 @@ import bcrypt from "bcrypt"
 import pool from "../database.js"
 import jwt from "jsonwebtoken"
 import { autenticarToken } from "../middlewares/autenticacao.js"
+import { apenasAdmin } from "../middlewares/autorizacao.js"
 import upload from "../../config/multer.js"
 import { buscarConfiguracao } from "../services/configuracoes.js"
  
@@ -248,6 +249,9 @@ async function registrarTentativaFalha(identificadores, ip, maxLoginAttempts, te
 router.put("/:id", autenticarToken, async (req, res) =>{
     try{
         const {id} = req.params
+        if (Number(id) !== Number(req.usuario.id) && req.usuario.tipo !== "admin") {
+            return res.status(403).json({ erro: "Você não pode alterar este usuário" })
+        }
         const {nome, email, senha} = req.body
 
         if(!nome || !email ) {
@@ -295,6 +299,10 @@ router.put("/:id", autenticarToken, async (req, res) =>{
 router.put( "/:id/foto", autenticarToken, upload.single("foto"), async (req, res) => {
         try {
             const { id } = req.params
+
+            if (Number(id) !== Number(req.usuario.id) && req.usuario.tipo !== "admin") {
+                return res.status(403).json({ erro: "Você não pode alterar este usuário" })
+            }
 
             if (!req.file) {
                 return res.status(400).json({

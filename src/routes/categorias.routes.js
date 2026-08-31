@@ -1,6 +1,8 @@
 import express from "express"
 import db from "../database.js"
 import upload from "../../config/multer.js"
+import { autenticarToken } from "../middlewares/autenticacao.js"
+import { apenasAdmin } from "../middlewares/autorizacao.js"
 
 const router = express.Router()
 
@@ -22,7 +24,7 @@ router.get("/", async (req, res) => {
 })
 
 // método de adicionar uma categoria
-router.post("/", upload.single("imagem"), async (req, res) => {
+router.post("/", autenticarToken, apenasAdmin, upload.single("imagem"), async (req, res) => {
 
     try {
 
@@ -68,7 +70,7 @@ router.post("/", upload.single("imagem"), async (req, res) => {
 
 
 // metodo de deletar as categorias
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", autenticarToken, apenasAdmin, async (req, res) => {
     try {
         const { id } = req.params
 
@@ -97,7 +99,7 @@ router.delete("/:id", async (req, res) => {
 
 
 // metodo de editar a categoria
-router.put("/:id", upload.single("imagem"), async (req, res) => {
+router.put("/:id", autenticarToken, apenasAdmin, upload.single("imagem"), async (req, res) => {
     try {
         const { id } = req.params
         const { nome, descricao, ativo } = req.body

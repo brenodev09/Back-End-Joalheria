@@ -1,8 +1,11 @@
 import express from "express";
 import db from "../database.js";
 import upload from "../../config/multer.js";
+import { autenticarToken } from "../middlewares/autenticacao.js";
+import { apenasAdmin } from "../middlewares/autorizacao.js";
 
 const router = express.Router();
+const protegerAdmin = [autenticarToken, apenasAdmin];
 
 // Status de pedido considerados "venda válida" para receita/pedidos/vendidos.
 // Ajuste aqui se quiser incluir/excluir algum status.
@@ -516,6 +519,7 @@ router.get("/:id", async (req, res) => {
 // ======================================================
 router.post(
     "/",
+    ...protegerAdmin,
     upload.single("imagem"),
     async (req, res) => {
         const conexao = await db.getConnection();
@@ -768,7 +772,7 @@ router.post(
 // PUT /colecoes/:id
 // ======================================================
 
-router.put("/:id", upload.single("imagem"), async (req, res) => {
+router.put("/:id", ...protegerAdmin, upload.single("imagem"), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -881,7 +885,7 @@ router.put("/:id", upload.single("imagem"), async (req, res) => {
 // DELETE /colecoes/:id
 // ======================================================
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", ...protegerAdmin, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -917,7 +921,7 @@ router.delete("/:id", async (req, res) => {
 // PUT /colecoes/produto/:produtoId   body: { colecao_ids: [] }
 // ======================================================
 
-router.put("/produto/:produtoId", async (req, res) => {
+router.put("/produto/:produtoId", ...protegerAdmin, async (req, res) => {
     const conexao = await db.getConnection();
 
     try {
@@ -1010,7 +1014,7 @@ router.get("/produto/:produtoId", async (req, res) => {
 // POST /colecoes/:id/produtos
 // ======================================================
 
-router.post("/:id/produtos", async (req, res) => {
+router.post("/:id/produtos", ...protegerAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { produto_ids } = req.body;
@@ -1065,7 +1069,7 @@ router.post("/:id/produtos", async (req, res) => {
 // DELETE /colecoes/:id/produtos/:produtoId
 // ======================================================
 
-router.delete("/:id/produtos/:produtoId", async (req, res) => {
+router.delete("/:id/produtos/:produtoId", ...protegerAdmin, async (req, res) => {
     try {
         const {
             id,

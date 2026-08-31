@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../database.js";
 import { autenticarToken } from "../middlewares/autenticacao.js";
+import { validarConfiguracao } from "../services/personalizacoes.js";
 
 const router = express.Router();
 
@@ -45,6 +46,8 @@ ci.id,
 
 ci.quantidade,
 
+ci.configuracao,
+
 p.id AS produto_id,
 
 p.nome,
@@ -62,6 +65,7 @@ pv.tipo AS tipo_variacao,
 pv.valor AS variacao,
 
 COALESCE(
+ci.preco_personalizado,
 pv.preco,
 p.preco
 ) AS preco
@@ -137,6 +141,15 @@ router.post("/", autenticarToken, async (req, res) => {
 
         const quantidadeNormalizada =
             Number(quantidadeInformada);
+
+        let calculoPersonalizacao = null;
+        if (req.body.configuracao) {
+            try {
+                calculoPersonalizacao = await validarConfiguracao(produtoId, req.body.configuracao);
+            } catch (erro) {
+                return res.status(erro.statusCode || 422).json({ erro: erro.message });
+            }
+        }
 
         if (!produtoId) {
 
@@ -310,6 +323,11 @@ AND ? IS NULL
 
 )
 
+AND (
+    configuracao = ?
+    OR (configuracao IS NULL AND ? IS NULL)
+)
+
 `,
 
             [
@@ -320,7 +338,9 @@ AND ? IS NULL
 
                 variacaoId,
 
-                variacaoId
+                variacaoId,
+                calculoPersonalizacao ? JSON.stringify(calculoPersonalizacao.configuracao) : null,
+                calculoPersonalizacao ? JSON.stringify(calculoPersonalizacao.configuracao) : null
 
             ]
 
@@ -389,9 +409,13 @@ variacao_id,
 
 quantidade
 
+, configuracao
+
+, preco_personalizado
+
 )
 
-VALUES(?,?,?,?)
+VALUES(?,?,?,?,?,?)
 
 `,
 
@@ -403,7 +427,9 @@ VALUES(?,?,?,?)
 
                 variacaoId,
 
-                quantidadeNormalizada
+                quantidadeNormalizada,
+                calculoPersonalizacao ? JSON.stringify(calculoPersonalizacao.configuracao) : null,
+                calculoPersonalizacao?.precoFinal ?? null
 
             ]
 

@@ -34,9 +34,9 @@ export const mpPayment = new Payment(client)
 // ======================================================
 
 export const pagamentoMock =
-    String(
-        process.env.PAYMENT_MOCK
-    ).toLowerCase() === "true"
+    String(process.env.PAYMENT_MOCK ?? "").toLowerCase() === "true" ||
+    !process.env.MP_ACCESS_TOKEN ||
+    String(process.env.MP_ACCESS_TOKEN).trim() === ""
 
 
 // ======================================================

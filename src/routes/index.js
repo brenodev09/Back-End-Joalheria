@@ -12,6 +12,7 @@ import colecoesRoutes from "./colecoes.routes.js"
 import pedidosRoutes from "./pedidos.routes.js"
 import funcionariosRoutes from "./funcionarios.routes.js"
 import configuracoesRoutes from "./configuracoes.routes.js"
+import personalizacoesRoutes from "./personalizacoes.routes.js"
 
 
 
@@ -29,6 +30,7 @@ routes.use("/categorias", categoriasRoutes)
 routes.use("/usuarios", usuariosRoutes)
 routes.use("/materiais", materiaisRoutes)
 routes.use("/produtos", produtosRoutes)
+routes.use("/produtos", personalizacoesRoutes)
 routes.use("/carrinho", carrinhoRoutes);
 routes.use("/dashboard", dashboardRoutes)
 routes.use("/colecoes", colecoesRoutes);

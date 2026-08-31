@@ -1,8 +1,10 @@
 import express from "express"
 import db from "../database.js"
 import { autenticarToken } from "../middlewares/autenticacao.js"
+import { apenasAdmin } from "../middlewares/autorizacao.js"
 
 const router = express.Router()
+router.use(autenticarToken, apenasAdmin)
 
 router.get("/atividades-recentes", autenticarToken, async (req, res) => {
     try {

@@ -5,16 +5,22 @@ import doteEnv from "dotenv"
 import { cancelarPedidosExpirados } from "./routes/pedidos.routes.js"
 import { verificarStatusLoja } from "./middlewares/statusLoja.js"
 import { inicializarConfiguracoes, statusEfetivoLoja } from "./services/configuracoes.js"
+import { garantirEstruturaBanco } from "./database.js"
+import path from "path"
+import { fileURLToPath } from "url"
 
 
 const app = express()
 
 doteEnv.config()
 
-app.use(cors())
+app.use(cors({
+    origin: process.env.URL_FRONTEND || "http://localhost:5173"
+}))
 app.use(express.json())
 
-app.use("/uploads", express.static("uploads"))
+const raizProjeto = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
+app.use("/uploads", express.static(path.join(raizProjeto, "uploads")))
 
 app.get("/status-loja", async (req, res) => {
     try {
@@ -36,9 +42,30 @@ app.get("/status-loja", async (req, res) => {
 })
 
 app.use(verificarStatusLoja)
+app.use("/api", routes)
 app.use(routes)
 
+app.use((error, req, res, next) => {
+    if (res.headersSent) return next(error)
+
+    if (error?.type === "entity.parse.failed") {
+        return res.status(400).json({ erro: "JSON inválido" })
+    }
+
+    if (error?.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({ erro: "Arquivo excede o tamanho permitido" })
+    }
+
+    if (error?.message === "Formato de arquivo inválido") {
+        return res.status(400).json({ erro: error.message })
+    }
+
+    console.error("ERRO NÃO TRATADO:", error)
+    return res.status(error?.statusCode || 500).json({ erro: "Erro interno do servidor" })
+})
+
 async function iniciarServidor() {
+    await garantirEstruturaBanco()
     await inicializarConfiguracoes()
     setInterval(cancelarPedidosExpirados, 60 * 1000)
     app.listen(process.env.PORT, () => {

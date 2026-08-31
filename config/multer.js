@@ -1,16 +1,27 @@
 import multer from "multer"
 import path from "path"
+import fs from "fs"
+import { fileURLToPath } from "url"
+
+const raizProjeto = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
+const pastaUploads = path.join(raizProjeto, "uploads")
+fs.mkdirSync(pastaUploads, { recursive: true })
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, "uploads/")
+        cb(null, pastaUploads)
     },
 
     filename: (req, file, cb) => {
         const timestamp = Date.now()
-
-        const nomeArquivo =
-            timestamp + "-" + file.originalname.replace(/\s+/g, "-")
+        const extensao = path.extname(file.originalname).toLowerCase()
+        const nome = path.basename(file.originalname, extensao)
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-zA-Z0-9_-]/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "")
+        const nomeArquivo = `${timestamp}-${nome || "arquivo"}${extensao}`
 
         cb(null, nomeArquivo)
     }

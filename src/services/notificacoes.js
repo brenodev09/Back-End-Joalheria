@@ -9,13 +9,16 @@ const transporter = process.env.SMTP_HOST &&
     ? nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
-        secure: String(process.env.SMTP_SECURE).toLowerCase() === "true",
+        secure: String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
         auth: process.env.SMTP_USER
             ? {
                 user: process.env.SMTP_USER,
                 pass: senhaSmtp
             }
-            : undefined
+            : undefined,
+        connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 5000),
+        greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 5000),
+        socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 5000)
     })
     : null
 
@@ -34,13 +37,18 @@ export async function enviarEmail({ para, assunto, texto }) {
         return false
     }
 
+    const timeoutMs = Number(process.env.SMTP_TIMEOUT_MS || 5000)
+
     try {
-        await transporter.sendMail({
-            from: process.env.SMTP_FROM || process.env.SMTP_USER,
-            to: para,
-            subject: assunto,
-            text: texto
-        })
+        await Promise.race([
+            transporter.sendMail({
+                from: process.env.SMTP_FROM || process.env.SMTP_USER,
+                to: para,
+                subject: assunto,
+                text: texto
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("SMTP timeout")), timeoutMs))
+        ])
 
         console.log(`E-MAIL ENVIADO: ${assunto} -> ${para}`)
         return true
