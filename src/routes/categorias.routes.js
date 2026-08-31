@@ -8,7 +8,23 @@ const router = express.Router()
 
 router.get("/", async (req, res) => {
     try {
-        const sql = `select id, nome, descricao, imagem, ativo, criado_em, atualizado_em from categorias order by id desc`
+
+        const sql = `
+            SELECT
+                c.id,
+                c.nome,
+                c.descricao,
+                c.imagem,
+                c.ativo,
+                c.criado_em,
+                c.atualizado_em,
+                COUNT(p.id) AS total_produtos
+            FROM categorias c
+            LEFT JOIN produtos p
+                ON p.categoria_id = c.id
+            GROUP BY c.id
+            ORDER BY c.id DESC
+        `
 
         const [categorias] = await db.query(sql)
 
@@ -22,6 +38,7 @@ router.get("/", async (req, res) => {
         })
     }
 })
+
 
 // método de adicionar uma categoria
 router.post("/", autenticarToken, apenasAdmin, upload.single("imagem"), async (req, res) => {

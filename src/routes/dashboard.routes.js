@@ -80,10 +80,10 @@ router.get("/metricas", async (req, res) => {
         `)
 
         const [colecoesMaisVendidas] = await db.query(`
-              SELECT c.id, c.nome,   SUM(pi.quantidade * pi.preco_unitario) AS faturamento,
+              SELECT c.id, c.nome, c.imagem,   SUM(pi.quantidade * pi.preco_unitario) AS faturamento,
             SUM(pi.quantidade) AS produtosVendidos FROM pedidos_itens pi INNER JOIN colecoes_produtos cp
              ON cp.produto_id = pi.produto_id INNER JOIN colecoes c ON c.id = cp.colecao_id INNER JOIN pedidos ped
-              ON ped.id = pi.pedido_id WHERE ped.status_pedido IN ( 'entregue') GROUP BY c.id, c.nome
+              ON ped.id = pi.pedido_id WHERE ped.status_pedido IN ( 'entregue') GROUP BY c.id, c.nome, c.imagem
             ORDER BY faturamento DESC LIMIT 5;
             `)
 
@@ -121,6 +121,7 @@ router.get("/metricas", async (req, res) => {
             colecoesMaisVendidas: colecoesMaisVendidas.map(colecao => ({
                 id: colecao.id,
                 nome: colecao.nome,
+                imagem: colecao.imagem,
                 faturamento: Number(colecao.faturamento),
                 produtosVendidos: Number(colecao.produtosVendidos)
 
@@ -195,6 +196,7 @@ router.get("/alertas-estoque", async (req, res) => {
                 p.nome,
                 p.estoque,
                 p.estoque_minimo,
+                p.imagem,
                 c.nome AS categoria
             FROM produtos p
             LEFT JOIN categorias c
@@ -232,6 +234,7 @@ router.get("/produtos-recentes", async (req, res) => {
                 p.nome,
                 p.preco,
                 p.estoque,
+                p.imagem,
                 p.created_at,
                 c.nome AS categoria
             FROM produtos p
@@ -325,6 +328,7 @@ router.get("/resumo-vendas", async (req, res) => {
                   SELECT
                     p.id,
                     p.nome,
+                    p.imagem,
                     SUM(pi.quantidade) AS totalVendas,
                     SUM(pi.quantidade * pi.preco_unitario) AS faturamento
                 FROM pedidos_itens pi
@@ -333,7 +337,7 @@ router.get("/resumo-vendas", async (req, res) => {
                 INNER JOIN pedidos ped
                     ON ped.id = pi.pedido_id
                 WHERE ped.status_pedido IN ('entregue')
-                GROUP BY p.id, p.nome
+                GROUP BY p.id, p.nome, p.imagem
                 ORDER BY totalVendas DESC
                 LIMIT 5  
             
@@ -356,6 +360,7 @@ router.get("/resumo-vendas", async (req, res) => {
             produtosMaisVendidos: produtosMaisVendidos.map(produto => ({
                 id: produto.id,
                 nome: produto.nome,
+                imagem: produto.imagem,
                 totalVendas: Number(produto.totalVendas),
                 faturamento: Number(produto.faturamento)
             }))
