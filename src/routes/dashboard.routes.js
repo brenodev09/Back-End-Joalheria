@@ -296,9 +296,31 @@ router.get("/resumo-vendas", async (req, res) => {
 
         `)
 
-        const [faturamentoBruto] = await db.query(`
+        const [[faturamentoBruto]] = await db.query(`
             select COALESCE(SUM(total), 0) AS faturamentoBruto from pedidos where status_pedido IN ("entregue")
         `)
+
+        const [[faturamentoMensal]] = await db.query(`
+            SELECT COALESCE(SUM(total), 0) AS faturamentoMensal
+            FROM pedidos
+            WHERE status_pedido IN ('entregue')
+            AND MONTH(criado_em) = MONTH(CURDATE())
+            AND YEAR(criado_em) = YEAR(CURDATE())
+    `)
+
+        const [[faturamentoHoje]] = await db.query(`
+        SELECT COALESCE(SUM(total), 0) AS faturamentoHoje
+        FROM pedidos
+        WHERE status_pedido IN ('entregue')
+        AND DATE(criado_em) = CURDATE()
+`)
+
+        const [[faturamentoSemana]] = await db.query(`
+            SELECT COALESCE(SUM(total), 0) AS faturamentoSemana
+            FROM pedidos
+            WHERE status_pedido IN ('entregue')
+            AND YEARWEEK(criado_em, 1) = YEARWEEK(CURDATE(), 1)
+`)
 
         const [[totalProdutosVendidos]] = await db.query(`
             SELECT  COALESCE(SUM(pi.quantidade), 0) AS totalProdutosVendidos FROM pedidos_itens pi
@@ -348,6 +370,9 @@ router.get("/resumo-vendas", async (req, res) => {
             vendasMensal: vendasMensal.total,
             vendasUltimos30Dias,
             faturamentoBruto: Number(faturamentoBruto.faturamentoBruto),
+            faturamentoMensal: Number(faturamentoMensal.faturamentoMensal),
+            faturamentoHoje: Number(faturamentoHoje.faturamentoHoje),
+            faturamentoSemana: Number(faturamentoSemana.faturamentoSemana),
             totalProdutosVendidos: Number(totalProdutosVendidos.totalProdutosVendidos),
 
             pedidosPorStatus: pedidosPorStatus.map(item => ({
