@@ -23,7 +23,7 @@ import {
     enviarEmailAdministradores
 } from "../services/notificacoes.js"
 import { statusEfetivoLoja } from "../services/configuracoes.js"
-import { validarConfiguracao, configuracaoVazia } from "../services/personalizacoes.js"
+import { validarConfiguracao } from "../services/personalizacoes.js"
 
 
 const router = express.Router()
@@ -692,12 +692,14 @@ router.post(
 
             const formaPagamentoInformada =
                 req.body.formaPagamento ||
+                req.body.forma_pagamento ||
                 req.body.pagamento ||
                 req.body.metodoPagamento
 
 
             const entregaInformada =
                 req.body.tipoEntrega ||
+                req.body.tipo_entrega ||
                 req.body.formaEntrega ||
                 req.body.entrega
 
@@ -770,14 +772,82 @@ router.post(
                 req.body.coupon?.codigo
 
 
-            const endereco =
+            const enderecoBruto =
                 req.body.endereco ||
                 req.body.enderecoEntrega
 
 
-            const dadosCartao =
+            /*
+             * Normaliza os campos do endereço para aceitar tanto
+             * camelCase quanto snake_case (ex: nome_destinatario / nome,
+             * rua / endereco, estado / uf), já que diferentes versões
+             * do frontend usam convenções diferentes.
+             */
+            const endereco =
+                enderecoBruto
+                    ? {
+                        nome:
+                            enderecoBruto.nome ??
+                            enderecoBruto.nome_destinatario ??
+                            enderecoBruto.nomeDestinatario,
+
+                        telefone:
+                            enderecoBruto.telefone,
+
+                        endereco:
+                            enderecoBruto.endereco ??
+                            enderecoBruto.rua,
+
+                        numero:
+                            enderecoBruto.numero,
+
+                        bairro:
+                            enderecoBruto.bairro,
+
+                        cidade:
+                            enderecoBruto.cidade,
+
+                        uf:
+                            enderecoBruto.uf ??
+                            enderecoBruto.estado,
+
+                        cep:
+                            enderecoBruto.cep,
+
+                        complemento:
+                            enderecoBruto.complemento
+                    }
+                    : null
+
+
+            const dadosCartaoBruto =
                 req.body.dadosCartao ||
+                req.body.dados_cartao ||
                 req.body.cartao
+
+
+            /*
+             * Mesma normalização para os dados do cartão
+             * (ex: nome_titular / nomeTitular).
+             */
+            const dadosCartao =
+                dadosCartaoBruto
+                    ? {
+                        numero:
+                            dadosCartaoBruto.numero,
+
+                        nomeTitular:
+                            dadosCartaoBruto.nomeTitular ??
+                            dadosCartaoBruto.nome_titular,
+
+                        bandeira:
+                            dadosCartaoBruto.bandeira,
+
+                        mockStatus:
+                            dadosCartaoBruto.mockStatus ??
+                            dadosCartaoBruto.mock_status
+                    }
+                    : null
 
 
             // ==================================================
@@ -1074,7 +1144,7 @@ router.post(
             // ==================================================
 
             for (const item of itensCarrinho) {
-                if (configuracaoVazia(item.configuracao)) continue
+                if (!item.configuracao) continue
                 let configuracao
                 try {
                     configuracao = typeof item.configuracao === "string"
@@ -1813,6 +1883,7 @@ router.post(
                 const emailPagador =
                     (
                         req.body.emailPagamento ||
+                        req.body.email_pagamento ||
                         req.usuario.email ||
                         "test_user@test.com"
                     ).trim()
@@ -1974,7 +2045,9 @@ router.post(
                     emailPagamento,
                     cpf
                 } =
-                    req.body.dadosCartao || {}
+                    req.body.dadosCartao ||
+                    req.body.dados_cartao ||
+                    {}
 
 
                 if (
