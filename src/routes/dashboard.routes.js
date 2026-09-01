@@ -264,13 +264,19 @@ router.get("/resumo-vendas", async (req, res) => {
 
     try {
 
-        const [[vendasHoje]] = await db.query(`SELECT COUNT(*) AS total FROM pedidos WHERE DATE(criado_em) = CURDATE() `)
-
-        const [[vendasMensal]] = await db.query(`  SELECT COUNT(*) AS total
+        const [[vendasHoje]] = await db.query(`
+            SELECT COUNT(*) AS total
             FROM pedidos
-            WHERE MONTH(criado_em) = MONTH(CURDATE())
-            AND YEAR(criado_em) = YEAR(CURDATE())` )
-
+            WHERE status_pedido = 'entregue'
+            AND DATE(criado_em) = CURDATE()
+`)
+        const [[vendasMensal]] = await db.query(`
+            SELECT COUNT(*) AS total
+            FROM pedidos
+            WHERE status_pedido = 'entregue'
+            AND MONTH(criado_em) = MONTH(CURDATE())
+            AND YEAR(criado_em) = YEAR(CURDATE())
+`)
 
 
         const [vendasUltimos30Dias] = await db.query(`
@@ -289,7 +295,7 @@ router.get("/resumo-vendas", async (req, res) => {
             LEFT JOIN pedidos p
                 ON p.criado_em >= dias.data
                 AND p.criado_em < dias.data + INTERVAL 1 DAY
-                AND p.status_pedido IN ('pago', 'enviado', 'entregue')
+                AND p.status_pedido IN ('entregue')
 
             GROUP BY dias.data
             ORDER BY dias.data ASC
