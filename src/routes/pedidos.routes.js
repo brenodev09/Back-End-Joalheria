@@ -23,7 +23,7 @@ import {
     enviarEmailAdministradores
 } from "../services/notificacoes.js"
 import { statusEfetivoLoja } from "../services/configuracoes.js"
-import { validarConfiguracao } from "../services/personalizacoes.js"
+import { validarConfiguracao, configuracaoVazia } from "../services/personalizacoes.js"
 
 
 const router = express.Router()
@@ -1074,7 +1074,7 @@ router.post(
             // ==================================================
 
             for (const item of itensCarrinho) {
-                if (!item.configuracao) continue
+                if (configuracaoVazia(item.configuracao)) continue
                 let configuracao
                 try {
                     configuracao = typeof item.configuracao === "string"

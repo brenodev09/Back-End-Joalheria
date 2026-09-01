@@ -13,7 +13,9 @@ function usuarioAdmin(req) {
 
 export async function verificarStatusLoja(req, res, next) {
     try {
-        if (req.path === "/usuarios/login" || req.path === "/status-loja") return next()
+        const caminho = req.path || ""
+        const rotaPublica = caminho === "/status-loja" || caminho === "/usuarios/login" || caminho === "/api/status-loja" || caminho === "/api/usuarios/login"
+        if (rotaPublica) return next()
         const { status, configuracoes } = await statusEfetivoLoja()
         req.statusLoja = status
         if (usuarioAdmin(req)) return next()

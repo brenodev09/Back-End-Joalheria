@@ -1,7 +1,7 @@
 import express from "express";
 import pool from "../database.js";
 import { autenticarToken } from "../middlewares/autenticacao.js";
-import { validarConfiguracao } from "../services/personalizacoes.js";
+import { validarConfiguracao, configuracaoVazia } from "../services/personalizacoes.js";
 
 const router = express.Router();
 
@@ -119,33 +119,40 @@ router.post("/", autenticarToken, async (req, res) => {
 
     try {
 
+        const corpo = req.body || {};
         const usuarioId = req.usuario.id;
 
         const produtoId =
-            req.body.produto_id ??
-            req.body.produtoId ??
-            req.body.productId ??
-            req.body.id;
+            corpo.produto_id ??
+            corpo.produtoId ??
+            corpo.productId ??
+            corpo.id;
 
         const variacaoId =
-            req.body.variacao_id ??
-            req.body.variacaoId ??
-            req.body.variationId ??
-            req.body.variacao?.id ??
+            corpo.variacao_id ??
+            corpo.variacaoId ??
+            corpo.variationId ??
+            corpo.variacao?.id ??
             null;
 
         const quantidadeInformada =
-            req.body.quantidade ??
-            req.body.quantity ??
+            corpo.quantidade ??
+            corpo.quantity ??
             1;
 
         const quantidadeNormalizada =
             Number(quantidadeInformada);
 
+        if (!produtoId) {
+            return res.status(400).json({
+                erro: "Produto não informado."
+            });
+        }
+
         let calculoPersonalizacao = null;
-        if (req.body.configuracao) {
+        if (corpo.configuracao && !configuracaoVazia(corpo.configuracao)) {
             try {
-                calculoPersonalizacao = await validarConfiguracao(produtoId, req.body.configuracao);
+                calculoPersonalizacao = await validarConfiguracao(produtoId, corpo.configuracao);
             } catch (erro) {
                 return res.status(erro.statusCode || 422).json({ erro: erro.message });
             }

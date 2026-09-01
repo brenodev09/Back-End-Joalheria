@@ -9,15 +9,22 @@ import { garantirEstruturaBanco } from "./database.js"
 import path from "path"
 import { fileURLToPath } from "url"
 
-
 const app = express()
 
 doteEnv.config()
 
+if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET não configurado. Defina a variável de ambiente antes de iniciar a aplicação.")
+}
+
+const porta = Number(process.env.PORT) || 3000
+
+app.disable("x-powered-by")
 app.use(cors({
-    origin: process.env.URL_FRONTEND || "http://localhost:5173"
+    origin: process.env.URL_FRONTEND || "http://localhost:5173",
+    credentials: true
 }))
-app.use(express.json())
+app.use(express.json({ limit: "1mb" }))
 
 const raizProjeto = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 app.use("/uploads", express.static(path.join(raizProjeto, "uploads")))
@@ -68,8 +75,8 @@ async function iniciarServidor() {
     await garantirEstruturaBanco()
     await inicializarConfiguracoes()
     setInterval(cancelarPedidosExpirados, 60 * 1000)
-    app.listen(process.env.PORT, () => {
-        console.log(`Servidor rodando na porta ${process.env.PORT}`)
+    app.listen(porta, () => {
+        console.log(`Servidor rodando na porta ${porta}`)
     })
 }
 

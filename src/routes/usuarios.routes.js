@@ -11,7 +11,7 @@ const router = express.Router()
 
 router.get("/", autenticarToken, async (req, res) => {
     try {
-        const sql = `select id, nome, email, tipo, ativo, criado_em, atualizado_em
+        const sql = `select id, nome, email, tipo, ativo, criado_em, atualizado_em, foto_perfil
          from usuarios order by id desc`
 
         const [usuarios] = await pool.query(sql)
@@ -31,7 +31,7 @@ router.get("/:id", autenticarToken, async (req, res) => {
 
         const { id } = req.params
 
-        const sql = `select * from usuarios where id = ?`
+        const sql = `select id, nome, email, tipo, ativo, criado_em, atualizado_em, foto_perfil from usuarios where id = ?`
 
         const [resultado] = await pool.query(sql, [id])
 
@@ -86,7 +86,7 @@ router.post("/", async (req, res) => {
         const [resultado] = await pool.query(sql, [nome, email, senhaCriptografada])
 
         const [usuarioCriado] = await pool.query(`
-        select * from usuarios where id = ?
+        select id, nome, email, tipo, ativo, criado_em, atualizado_em from usuarios where id = ?
     `, [resultado.insertId])
 
         return res.status(201).json(usuarioCriado[0])

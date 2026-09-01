@@ -10,6 +10,17 @@ function numeroInteiro(valor, campo) {
     return numero
 }
 
+export function normalizarBoolean(valor) {
+    if (valor === true || valor === 1 || valor === "1") return true
+    if (valor === false || valor === 0 || valor === "0") return false
+    if (typeof valor === "string") {
+        const texto = valor.trim().toLowerCase()
+        if (["true", "1", "yes", "y"].includes(texto)) return true
+        if (["false", "0", "no", "n", ""].includes(texto)) return false
+    }
+    return Boolean(valor)
+}
+
 function objeto(valor, campo) {
     if (!valor || typeof valor !== "object" || Array.isArray(valor)) {
         const erro = new Error(`${campo} deve ser um objeto`)
@@ -80,7 +91,7 @@ export async function carregarConfigurador(produtoId, connection = db) {
         erro.statusCode = 404
         throw erro
     }
-    if (!produtos[0].personalizavel) {
+    if (!normalizarBoolean(produtos[0].personalizavel)) {
         const erro = new Error("Este produto não aceita personalização")
         erro.statusCode = 422
         throw erro
@@ -123,9 +134,52 @@ export async function carregarConfigurador(produtoId, connection = db) {
     }
 }
 
+export function configuracaoVazia(configuracao) {
+    if (configuracao == null) return true
+    if (typeof configuracao === "string") {
+        const texto = configuracao.trim()
+        if (!texto) return true
+        try {
+            return configuracaoVazia(JSON.parse(texto))
+        } catch {
+            return false
+        }
+    }
+    if (Array.isArray(configuracao)) return configuracao.length === 0
+    if (typeof configuracao === "object") {
+        return Object.values(configuracao).every(item => {
+            if (item == null) return true
+            if (typeof item === "string") return item.trim() === ""
+            if (Array.isArray(item)) return item.length === 0
+            if (typeof item === "object") return configuracaoVazia(item)
+            return false
+        })
+    }
+    return false
+}
+
 export async function validarConfiguracao(produtoId, configuracao, connection = db) {
+    if (configuracaoVazia(configuracao)) {
+        const [produtos] = await connection.query("SELECT id, nome, preco, ativo, personalizavel FROM produtos WHERE id = ?", [produtoId])
+        if (!produtos.length) {
+            const erro = new Error("Produto não encontrado")
+            erro.statusCode = 404
+            throw erro
+        }
+        if (!normalizarBoolean(produtos[0].personalizavel)) {
+            return {
+                produto: { id: produtos[0].id, nome: produtos[0].nome },
+                configuracao: [],
+                precoBase: Number(produtos[0].preco || 0),
+                adicionais: [],
+                precoFinal: Number(produtos[0].preco || 0)
+            }
+        }
+        throw Object.assign(new Error("Informe a personalização do produto"), { statusCode: 422 })
+    }
+
     const dados = await carregarConfigurador(produtoId, connection)
-    if (!dados.produto.personalizavel) {
+    if (!normalizarBoolean(dados.produto.personalizavel)) {
         throw Object.assign(new Error("Este produto não aceita personalização"), { statusCode: 422 })
     }
     if (!dados.configurador.ativo) {
@@ -191,6 +245,31 @@ export async function validarConfiguracao(produtoId, configuracao, connection = 
         precoBase,
         adicionais,
         precoFinal: Number((precoBase + totalAdicionais).toFixed(2))
+    }
+}
+
+export function serializarProdutoPublico(produto, variacoes = [], dadosConfigurador = null) {
+    const configurador = dadosConfigurador?.configurador || { ativo: 0, quantidade_angulos: 1 }
+    const personalizacoes = Array.isArray(dadosConfigurador?.personalizacoes) ? dadosConfigurador.personalizacoes.filter(item => item.ativo).map(item => ({
+        ...item,
+        opcoes: (item.opcoes || []).filter(opcao => opcao.ativo).map(opcao => ({
+            ...opcao,
+            valorAdicional: Number(opcao.valor_adicional ?? 0),
+            imagens: opcao.imagens || []
+        }))
+    })) : []
+    const regras = Array.isArray(dadosConfigurador?.regras) ? dadosConfigurador.regras : []
+    return {
+        ...produto,
+        personalizavel: normalizarBoolean(produto.personalizavel),
+        configurador: {
+            ...configurador,
+            quantidadeAngulos: Number(configurador.quantidade_angulos ?? 1),
+            imagens: Array.isArray(dadosConfigurador?.imagens) ? dadosConfigurador.imagens.filter(item => item.tipo === "base" || item.tipo === "angulo") : []
+        },
+        personalizacoes,
+        regras,
+        variacoes: Array.isArray(variacoes) ? variacoes : []
     }
 }
 
