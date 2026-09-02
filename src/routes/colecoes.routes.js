@@ -982,6 +982,78 @@ router.put("/produto/:produtoId", ...protegerAdmin, async (req, res) => {
     }
 });
 
+// ======================================================
+// PRODUTOS RELACIONADOS (mesma coleção)
+// ------------------------------------------------------
+// Usada na página individual do produto ("Peças da mesma
+// coleção"). Busca todas as coleções às quais o produto
+// pertence e retorna outros produtos ativos que estejam
+// nessas mesmas coleções (sem repetir o próprio produto).
+// GET /colecoes/produto/:produtoId/relacionados?limite=4
+// ======================================================
+router.get("/produto/:produtoId/relacionados", async (req, res) => {
+    try {
+        const { produtoId } = req.params;
+
+        // Sanitiza o limite manualmente (LIMIT não aceita bind em algumas
+        // versões do mysql2 de forma confiável) — por isso Number() + fallback.
+        const limiteBruto = Number(req.query.limite);
+        const limite = Number.isInteger(limiteBruto) && limiteBruto > 0
+            ? Math.min(limiteBruto, 20)
+            : 4;
+
+        // 1) Descobre em quais coleções o produto atual está.
+        const [colecoesDoProduto] = await db.query(
+            `SELECT colecao_id FROM colecoes_produtos WHERE produto_id = ?`,
+            [produtoId]
+        );
+
+        const colecaoIds = colecoesDoProduto.map((linha) => linha.colecao_id);
+
+        // Produto não pertence a nenhuma coleção -> não há relacionados.
+        if (colecaoIds.length === 0) {
+            return res.json([]);
+        }
+
+        const placeholders = colecaoIds.map(() => "?").join(",");
+
+        // 2) Busca outros produtos ativos dessas coleções.
+        // GROUP BY p.id evita duplicar o produto caso ele e o atual
+        // dividam mais de uma coleção em comum.
+        const [produtos] = await db.query(
+            `
+            SELECT
+                p.id,
+                p.nome,
+                p.preco,
+                p.imagem,
+                MIN(c.nome)  AS colecao,
+                MIN(cp.ordem) AS ordem
+            FROM colecoes_produtos cp
+            INNER JOIN colecoes c
+                ON c.id = cp.colecao_id
+            INNER JOIN produtos p
+                ON p.id = cp.produto_id
+            WHERE cp.colecao_id IN (${placeholders})
+              AND cp.produto_id != ?
+              AND p.ativo = 1
+              AND c.ativo = 1
+            GROUP BY p.id
+            ORDER BY ordem ASC, p.id DESC
+            LIMIT ${limite}
+            `,
+            [...colecaoIds, produtoId]
+        );
+
+        res.json(produtos);
+    } catch (error) {
+        console.error("ERRO AO BUSCAR PRODUTOS RELACIONADOS:", error);
+        res.status(500).json({
+            erro: "Erro ao buscar produtos relacionados"
+        });
+    }
+});
+
 // LISTAR AS COLEÇÕES DE UM PRODUTO (para pré-marcar no modal de edição).
 // GET /colecoes/produto/:produtoId
 router.get("/produto/:produtoId", async (req, res) => {
