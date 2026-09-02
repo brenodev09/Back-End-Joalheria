@@ -112,11 +112,40 @@ router.get("/metricas", async (req, res) => {
             ORDER BY faturamento DESC
 `)
 
+
+        const [produtosFavoritados] = await db.query(`
+            SELECT
+                p.id,
+                p.nome,
+                p.imagem,
+                COUNT(f.id) AS total_favoritos
+            FROM produtos p
+            LEFT JOIN favoritos f
+                ON p.id = f.produto_id
+            GROUP BY p.id, p.nome, p.imagem
+            ORDER BY total_favoritos DESC
+            LIMIT 5
+        `)
+
+
+        const [[totalFavoritos]] = await db.query(`
+            SELECT COUNT(*) AS totalFavoritos
+            FROM favoritos
+        `)
+
         return res.json({
             totalProdutos: totalProdutos.total,
             produtosAtivos: produtosAtivos.total,
             valorEstoque: valorEstoque.total,
             itensEstoque: itensEstoque.total,
+            totalFavoritos: totalFavoritos.totalFavoritos,
+
+            produtosFavoritados: produtosFavoritados.map(produto => ({
+                id: produto.id,
+                nome: produto.nome,
+                imagem: produto.imagem,
+                totalFavoritos: Number(produto.total_favoritos)
+            })),
 
             colecoesMaisVendidas: colecoesMaisVendidas.map(colecao => ({
                 id: colecao.id,
