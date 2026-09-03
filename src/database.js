@@ -4,6 +4,13 @@ dotEnv.config()
 
 import mysql from "mysql2/promise"
 
+const configuracoesObrigatorias = ["DB_HOST", "DB_USER", "DB_NAME"]
+const configuracoesAusentes = configuracoesObrigatorias.filter((nome) => !process.env[nome])
+
+if (configuracoesAusentes.length > 0) {
+    throw new Error(`Configuração do banco ausente: ${configuracoesAusentes.join(", ")}. Crie um arquivo .env baseado em .env.example.`)
+}
+
 const db = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
