@@ -15,7 +15,7 @@ import configuracoesRoutes from "./configuracoes.routes.js"
 import personalizacoesRoutes from "./personalizacoes.routes.js"
 import favoritosRoutes from "./favoritos.routes.js"
 import avaliacoesProdutos from "./avaliacoesProdutos.routes.js"
-
+import relatoriosRoutes from "./relatorios.routes.js"
 
 
 
@@ -43,5 +43,6 @@ routes.use("/configuracoes", configuracoesRoutes)
 routes.use("/admin/configuracoes", configuracoesRoutes)
 routes.use("/favoritos", favoritosRoutes)
 routes.use("/avaliacoes", avaliacoesProdutos)
+routes.use("/relatorios", relatoriosRoutes)
 
 export default routes

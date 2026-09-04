@@ -4,8 +4,11 @@ import fs from "fs"
 import { fileURLToPath } from "url"
 
 const raizProjeto = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
-const pastaUploads = path.join(raizProjeto, "uploads")
+const pastaUploads = path.join(raizProjeto, "uploads", "relatorios")
+export const pastaRelatorios = path.join(raizProjeto, "uploads", "relatorios")
 fs.mkdirSync(pastaUploads, { recursive: true })
+fs.mkdirSync(pastaRelatorios, { recursive: true })
+
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -50,4 +53,6 @@ const upload = multer({
     }
 })
 
+
 export default upload
+
