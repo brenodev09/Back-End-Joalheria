@@ -4,7 +4,7 @@ import fs from "fs"
 import { fileURLToPath } from "url"
 
 const raizProjeto = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
-const pastaUploads = path.join(raizProjeto, "uploads", "relatorios")
+const pastaUploads = path.join(raizProjeto, "uploads", "produtos")
 export const pastaRelatorios = path.join(raizProjeto, "uploads", "relatorios")
 fs.mkdirSync(pastaUploads, { recursive: true })
 fs.mkdirSync(pastaRelatorios, { recursive: true })
@@ -55,4 +55,3 @@ const upload = multer({
 
 
 export default upload
-

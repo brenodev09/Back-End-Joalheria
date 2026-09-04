@@ -58,7 +58,7 @@ router.post("/", autenticarToken, apenasAdmin, upload.single("imagem"), async (r
     try {
         const { nome, descricao, preco, estoque, estoque_minimo, localizacao, categoria_id, material_id, ativo, destaque, personalizavel } = req.body
         const personalizavelNormalizado = normalizarBoolean(personalizavel) ? 1 : 0
-        const [resultado] = await db.query(`INSERT INTO produtos (nome, descricao, preco, estoque, estoque_minimo, localizacao, categoria_id, material_id, ativo, imagem, destaque, personalizavel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [nome, descricao || null, preco, estoque || 0, estoque_minimo || 5, localizacao || null, categoria_id || null, material_id || null, ativo === "true" || ativo === true || ativo === "1" ? 1 : 0, req.file ? `/uploads/${req.file.filename}` : null, destaque === "true" || destaque === true || destaque === "1" ? 1 : 0, personalizavelNormalizado])
+        const [resultado] = await db.query(`INSERT INTO produtos (nome, descricao, preco, estoque, estoque_minimo, localizacao, categoria_id, material_id, ativo, imagem, destaque, personalizavel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [nome, descricao || null, preco, estoque || 0, estoque_minimo || 5, localizacao || null, categoria_id || null, material_id || null, ativo === "true" || ativo === true || ativo === "1" ? 1 : 0, req.file ? `/uploads/produtos/${req.file.filename}` : null, destaque === "true" || destaque === true || destaque === "1" ? 1 : 0, personalizavelNormalizado])
         const [produto] = await db.query("SELECT * FROM produtos WHERE id = ?", [resultado.insertId])
         return res.status(201).json({ ...produto[0], personalizavel: normalizarBoolean(produto[0].personalizavel) })
     } catch (error) { console.error(error); return res.status(500).json({ erro: "Erro ao criar produto" }) }
@@ -78,7 +78,7 @@ router.put("/:id", autenticarToken, apenasAdmin, upload.single("imagem"), async 
         const personalizavelNormalizado = normalizarBoolean(personalizavel) ? 1 : 0
         const valores = [nome, descricao || null, Number(preco), Number(estoque), Number(estoque_minimo), localizacao || null, categoria_id || null, material_id || null, ativo === "true" || ativo === true || ativo === "1" ? 1 : 0, destaque === "true" || destaque === true || destaque === "1" ? 1 : 0, personalizavelNormalizado]
         let query = "UPDATE produtos SET nome=?, descricao=?, preco=?, estoque=?, estoque_minimo=?, localizacao=?, categoria_id=?, material_id=?, ativo=?, destaque=?, personalizavel=?"
-        if (req.file) { query += ", imagem=?"; valores.push(`/uploads/${req.file.filename}`) }
+        if (req.file) { query += ", imagem=?"; valores.push(`/uploads/produtos/${req.file.filename}`) }
         query += " WHERE id=?"; valores.push(req.params.id)
         const [resultado] = await db.query(query, valores)
         if (!resultado.affectedRows) return res.status(404).json({ erro: "Produto não encontrado" })
