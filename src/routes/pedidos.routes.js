@@ -14,6 +14,7 @@ import {
     mpPayment,
     pagamentoMock,
     gerarPagamentoMock,
+    gerarPixEstatico,
     mapearStatusMP,
     validarAssinaturaWebhook
 } from "../services/mercadopago.js"
@@ -385,6 +386,7 @@ async function confirmarPagamentoPedido(
         UPDATE pedidos
 
         SET status_pedido = 'pago'
+            , data_expiracao_pagamento = NULL
 
         WHERE id = ?
         `,
@@ -1889,43 +1891,10 @@ router.post(
                     ).trim()
 
 
-                const mpResposta =
-                    pagamentoMock
-
-                        ? await gerarPagamentoMock({
-                            tipo: "pix",
-                            pedidoId,
-                            valor: total
-                        })
-
-                        : await mpPayment.create({
-
-                            body: {
-
-                                transaction_amount:
-                                    Number(
-                                        Number(total)
-                                            .toFixed(2)
-                                    ),
-
-                                description:
-                                    `Pedido #${pedidoId} - Joalheria`,
-
-                                payment_method_id:
-                                    "pix",
-
-                                payer: {
-                                    email:
-                                        emailPagador
-                                }
-                            },
-
-                            requestOptions: {
-
-                                idempotencyKey:
-                                    `pedido-${pedidoId}-pix`
-                            }
-                        })
+                const mpResposta = await gerarPixEstatico({
+                    pedidoId,
+                    valor: total
+                })
 
 
                 const dadosPix =
@@ -2022,9 +1991,7 @@ router.post(
                         prazoPagamentoMinutos,
 
                     ambiente:
-                        pagamentoMock
-                            ? "static_pix"
-                            : "mercadopago"
+                        "static_pix"
                 }
             }
 
@@ -2845,6 +2812,12 @@ router.post(
     autenticarToken,
     async (req, res) => {
 
+        if (String(process.env.PAYMENT_MOCK || "").toLowerCase() !== "true") {
+            return res.status(403).json({
+                erro: "Simulação de PIX desativada. A confirmação real precisa vir do banco ou de um provedor PIX."
+            })
+        }
+
         const connection =
             await db.getConnection()
 
@@ -3077,6 +3050,101 @@ router.post(
 
         } finally {
 
+            connection.release()
+        }
+    }
+)
+
+router.post(
+    "/:id/pix/solicitar-confirmacao",
+    autenticarToken,
+    async (req, res) => {
+        const connection = await db.getConnection()
+
+        try {
+            const pedidoId = req.params.id
+            const [pedidos] = await connection.query(
+                `SELECT id, status_pedido, forma_pagamento
+                 FROM pedidos
+                 WHERE id = ? AND usuario_id = ?`,
+                [pedidoId, req.usuario.id]
+            )
+
+            if (!pedidos.length) {
+                return res.status(404).json({ erro: "Pedido não encontrado" })
+            }
+
+            const pedido = pedidos[0]
+            if (pedido.forma_pagamento !== "pix") {
+                return res.status(400).json({ erro: "Este pedido não utiliza PIX" })
+            }
+            if (pedido.status_pedido === "pago") {
+                return res.status(400).json({ erro: "Este pedido já está pago" })
+            }
+            if (pedido.status_pedido === "cancelado") {
+                return res.status(400).json({ erro: "Este pedido foi cancelado" })
+            }
+
+            await connection.beginTransaction()
+            const [pagamentos] = await connection.query(
+                `SELECT id
+                 FROM pagamentos
+                 WHERE pedido_id = ? AND tipo = 'pix' AND status = 'pendente'
+                 ORDER BY id DESC
+                 LIMIT 1
+                 FOR UPDATE`,
+                [pedidoId]
+            )
+
+            if (!pagamentos.length) {
+                await connection.rollback()
+                return res.status(400).json({ erro: "Pagamento PIX não encontrado ou já processado" })
+            }
+
+            await confirmarPagamentoPedido(
+                connection,
+                {
+                    pedidoId,
+                    pagamentoId: pagamentos[0].id,
+                    statusGateway: "manual_customer_confirmation"
+                }
+            )
+            await connection.commit()
+
+            const [usuarios] = await db.query(
+                `SELECT u.nome, u.email
+                 FROM usuarios u
+                 INNER JOIN pedidos p ON p.usuario_id = u.id
+                 WHERE p.id = ?`,
+                [pedidoId]
+            )
+
+            const emailClienteEnviado = await enviarEmail({
+                para: usuarios[0]?.email,
+                assunto: `Pagamento confirmado do pedido #${pedidoId}`,
+                texto: `Olá ${usuarios[0]?.nome || "cliente"}, seu pagamento foi informado e sua compra foi confirmada. Pedido #${pedidoId}.`
+            })
+            const emailAdminEnviado = await enviarEmailAdministradores({
+                assunto: `Compra confirmada pelo cliente #${pedidoId}`,
+                texto: `O cliente informou o pagamento e a compra foi confirmada. Pedido #${pedidoId}. Confira o comprovante ou extrato para validação.`
+            })
+
+            return res.json({
+                sucesso: true,
+                mensagem: "Pagamento informado e compra confirmada.",
+                pedidoId: Number(pedidoId),
+                status: "pago",
+                statusPedido: "Pedido confirmado",
+                notificacoes: {
+                    cliente: emailClienteEnviado,
+                    administrador: emailAdminEnviado
+                }
+            })
+        } catch (error) {
+            await connection.rollback()
+            console.error("ERRO AO SOLICITAR CONFIRMAÇÃO PIX:", error)
+            return res.status(500).json({ erro: "Não foi possível solicitar a confirmação" })
+        } finally {
             connection.release()
         }
     }
@@ -3998,7 +4066,8 @@ router.get(
             // ==================================================
 
             if (
-                pagamentoMock
+                pagamentoMock ||
+                String(pagamento.transacao_id || "").startsWith("PIX-ESTATICO-")
             ) {
 
                 return res.json({
@@ -4550,6 +4619,14 @@ export async function processarWebhookMercadoPago(
 
                 texto:
                     `Olá ${usuarios[0]?.nome || "cliente"}, seu pagamento do pedido #${pagamentoConfirmado} foi confirmado.`
+            })
+
+            await enviarEmailAdministradores({
+                assunto:
+                    `Pagamento confirmado do pedido #${pagamentoConfirmado}`,
+
+                texto:
+                    `O pagamento do pedido #${pagamentoConfirmado} foi confirmado pelo gateway.`
             })
         }
 

@@ -3,6 +3,7 @@
    ========================================================================= */
 
 import crypto from "crypto"
+import QRCode from "qrcode"
 
 import {
     MercadoPagoConfig,
@@ -27,6 +28,86 @@ const client = new MercadoPagoConfig({
 })
 
 export const mpPayment = new Payment(client)
+
+function campoPix(id, valor) {
+    const conteudo = String(valor)
+    return `${id}${String(conteudo.length).padStart(2, "0")}${conteudo}`
+}
+
+function crc16(payload) {
+    let crc = 0xffff
+
+    for (const caractere of payload) {
+        crc ^= caractere.charCodeAt(0) << 8
+        for (let bit = 0; bit < 8; bit += 1) {
+            crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1
+            crc &= 0xffff
+        }
+    }
+
+    return crc.toString(16).toUpperCase().padStart(4, "0")
+}
+
+function cpfValido(cpf) {
+    if (!/^\d{11}$/.test(cpf) || /^([0-9])\1{10}$/.test(cpf)) return false
+
+    let soma = 0
+    for (let indice = 0; indice < 9; indice += 1) soma += Number(cpf[indice]) * (10 - indice)
+    let resto = (soma * 10) % 11
+    if (resto === 10) resto = 0
+    if (resto !== Number(cpf[9])) return false
+
+    soma = 0
+    for (let indice = 0; indice < 10; indice += 1) soma += Number(cpf[indice]) * (11 - indice)
+    resto = (soma * 10) % 11
+    if (resto === 10) resto = 0
+    return resto === Number(cpf[10])
+}
+
+export async function gerarPixEstatico({ pedidoId, valor }) {
+    const chave = String(process.env.PIX_KEY || "").trim()
+    if (!chave) {
+        throw new Error("PIX_KEY não configurada. Informe a chave PIX que receberá o pagamento.")
+    }
+    if (/^\d{11}$/.test(chave) && !cpfValido(chave)) {
+        throw new Error("PIX_KEY contém um CPF inválido. Use uma chave PIX real cadastrada no banco.")
+    }
+
+    const nome = String(process.env.PIX_MERCHANT_NAME || "JOALHERIA").trim()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().slice(0, 25)
+    const cidade = String(process.env.PIX_MERCHANT_CITY || "SAO PAULO").trim()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().slice(0, 15)
+    const valorFormatado = Number(valor).toFixed(2)
+    const txid = `PEDIDO${pedidoId}`.replace(/[^A-Z0-9]/gi, "").slice(0, 25) || "***"
+
+    const payloadSemCrc = [
+        campoPix("00", "01"),
+        campoPix("26", campoPix("00", "BR.GOV.BCB.PIX") + campoPix("01", chave)),
+        campoPix("52", "0000"),
+        campoPix("53", "986"),
+        campoPix("54", valorFormatado),
+        campoPix("58", "BR"),
+        campoPix("59", nome),
+        campoPix("60", cidade),
+        campoPix("62", campoPix("05", txid)),
+        "6304"
+    ].join("")
+    const payload = `${payloadSemCrc}${crc16(payloadSemCrc)}`
+    const dataUrl = await QRCode.toDataURL(payload, { width: 360, margin: 2 })
+
+    return {
+        id: `PIX-ESTATICO-${pedidoId}`,
+        status: "pending",
+        transaction_amount: Number(valor),
+        point_of_interaction: {
+            transaction_data: {
+                qr_code: payload,
+                qr_code_base64: dataUrl.replace(/^data:image\/png;base64,/, ""),
+                ticket_url: null
+            }
+        }
+    }
+}
 
 
 // ======================================================

@@ -1,3 +1,4 @@
+import "dotenv/config"
 import nodemailer from "nodemailer"
 
 const senhaSmtp = String(process.env.SMTP_PASSWORD || "")
@@ -64,11 +65,13 @@ export async function enviarEmailAdministradores({ assunto, texto }) {
         .map(email => email.trim())
         .filter(Boolean)
 
-    await Promise.all(
+    const resultados = await Promise.all(
         destinatarios.map(para => enviarEmail({
             para,
             assunto,
             texto
         }))
     )
+
+    return resultados.length > 0 && resultados.every(Boolean)
 }

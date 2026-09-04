@@ -1,7 +1,6 @@
 import express from "express"
 import { autenticarToken } from "../middlewares/autenticacao.js"
 import db from "../database.js"
-import { mpPayment, pagamentoMock } from "../services/mercadopago.js"
 import { atualizarConfiguracoes, buscarConfiguracoes, statusEfetivoLoja } from "../services/configuracoes.js"
 
 const router = express.Router()
@@ -54,9 +53,10 @@ router.get("/alertas", async (req, res) => {
 
 router.post("/testar-pagamento", async (req, res) => {
     try {
-        if (pagamentoMock) return res.json({ conectado: true, ambiente: "mock", mensagem: "Pagamento configurado em modo simulado" })
-        await mpPayment.get({ id: "0" })
-        return res.json({ conectado: true, ambiente: "mercadopago" })
+        if (String(process.env.PIX_KEY || "").trim()) {
+            return res.json({ conectado: true, ambiente: "static_pix", mensagem: "PIX estático configurado; nenhum débito automático será realizado" })
+        }
+        return res.status(400).json({ conectado: false, ambiente: "static_pix", erro: "PIX_KEY não configurada" })
     } catch (error) {
         const status = error?.status || error?.statusCode
         return res.status(502).json({ conectado: false, ambiente: "mercadopago", statusGateway: status || null, erro: "Não foi possível validar a conexão com o Mercado Pago" })
