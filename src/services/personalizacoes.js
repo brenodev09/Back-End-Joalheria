@@ -182,9 +182,6 @@ export async function validarConfiguracao(produtoId, configuracao, connection = 
     if (!normalizarBoolean(dados.produto.personalizavel)) {
         throw Object.assign(new Error("Este produto não aceita personalização"), { statusCode: 422 })
     }
-    if (!dados.configurador.ativo) {
-        throw Object.assign(new Error("O configurador deste produto está inativo"), { statusCode: 422 })
-    }
     let entrada = configuracao
     if (Array.isArray(configuracao)) {
         entrada = {}

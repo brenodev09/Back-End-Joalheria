@@ -47,6 +47,7 @@ ci.id,
 ci.quantidade,
 
 ci.configuracao,
+ci.preco_personalizado AS preco_final,
 
 p.id AS produto_id,
 
@@ -55,6 +56,8 @@ p.nome,
 p.descricao,
 
 p.imagem,
+
+p.preco AS preco_base,
 
 m.nome AS material,
 
@@ -94,7 +97,32 @@ ORDER BY ci.id DESC
 
         );
 
-        res.json(itens);
+        const itensComPersonalizacao = itens.map(item => {
+            let configuracao = item.configuracao
+            if (typeof configuracao === "string") {
+                try { configuracao = JSON.parse(configuracao) } catch { configuracao = null }
+            }
+
+            const adicionais = Array.isArray(configuracao)
+                ? configuracao.flatMap(personalizacao => personalizacao.opcoes || []).map(opcao => ({
+                    nome: opcao.nome,
+                    valor: Number(opcao.valorAdicional ?? opcao.valor_adicional ?? 0)
+                }))
+                : []
+            const precoBase = Number(item.preco_base || 0)
+            const precoFinal = Number(item.preco_final ?? item.preco ?? precoBase)
+
+            return {
+                ...item,
+                configuracao,
+                preco_base: precoBase,
+                adicionais,
+                preco_final: precoFinal,
+                preco: precoFinal
+            }
+        })
+
+        res.json(itensComPersonalizacao);
 
     } catch (error) {
 
@@ -210,45 +238,22 @@ WHERE id = ?
         }
 
         let estoqueDisponivel = produto[0].estoque;
-
-        // caso tenha variação
-
         if (variacaoId) {
-
             const [variacao] = await pool.query(
-
                 `
-
-SELECT
-estoque
-
+SELECT estoque
 FROM produto_variacoes
-
 WHERE id = ?
-
 AND produto_id = ?
-
 `,
-
-                [
-                    variacaoId,
-                    produtoId
-                ]
-
+                [variacaoId, produtoId]
             );
-
             if (variacao.length === 0) {
-
                 return res.status(404).json({
-
                     erro: "Variação inválida para este produto."
-
                 });
-
             }
-
             estoqueDisponivel = variacao[0].estoque;
-
         }
 
         if (quantidadeNormalizada > estoqueDisponivel) {
