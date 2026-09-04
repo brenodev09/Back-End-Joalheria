@@ -1,7 +1,7 @@
 import express from "express"
 import cors from "cors"
+import "dotenv/config"
 import routes from "./routes/index.js"
-import doteEnv from "dotenv"
 import { cancelarPedidosExpirados } from "./routes/pedidos.routes.js"
 import { verificarStatusLoja } from "./middlewares/statusLoja.js"
 import { inicializarConfiguracoes, statusEfetivoLoja } from "./services/configuracoes.js"
@@ -10,8 +10,6 @@ import path from "path"
 import { fileURLToPath } from "url"
 
 const app = express()
-
-doteEnv.config()
 
 if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET não configurado. Defina a variável de ambiente antes de iniciar a aplicação.")

@@ -50,6 +50,18 @@ const carrinhoBody = await listarCarrinho.json();
 console.log('carrinho list', listarCarrinho.status, Array.isArray(carrinhoBody) ? carrinhoBody.length : carrinhoBody);
 assert.equal(listarCarrinho.status, 200, 'Listagem do carrinho deve funcionar');
 assert.ok(Array.isArray(carrinhoBody), 'Carrinho deve retornar array');
+assert.ok(carrinhoBody.length > 0, 'Carrinho deve conter o produto adicionado');
+
+const itemCarrinho = carrinhoBody[0];
+const atualizarCarrinho = await fetch(`${base}/carrinho/item/${itemCarrinho.id}`, {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`
+  },
+  body: JSON.stringify({ quantidade: 1 })
+});
+assert.equal(atualizarCarrinho.status, 200, 'Atualização do carrinho deve funcionar');
 
 const pedido = await fetch(`${base}/pedidos`, {
   method: 'POST',
@@ -66,5 +78,12 @@ const pedidoBody = await pedido.json();
 console.log('pedido', pedido.status, pedidoBody);
 assert.ok(pedido.status === 201 || pedido.status === 200, 'Criação do pedido deve funcionar');
 assert.ok(pedidoBody.pedidoId || pedidoBody.sucesso || pedidoBody.erro === undefined, 'Pedido deve responder com payload válido');
+
+const carrinhoDepoisDoPedido = await fetch(`${base}/carrinho`, {
+  headers: { Authorization: `Bearer ${token}` }
+});
+const carrinhoDepoisDoPedidoBody = await carrinhoDepoisDoPedido.json();
+assert.equal(carrinhoDepoisDoPedido.status, 200, 'Carrinho após o pedido deve responder 200');
+assert.equal(carrinhoDepoisDoPedidoBody.length, 0, 'Carrinho deve ser limpo após o pedido');
 
 console.log('✅ Fluxos principais validados com sucesso');

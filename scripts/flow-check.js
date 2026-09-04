@@ -2,8 +2,8 @@ const base = 'http://localhost:3000/api';
 
 async function request(path, options = {}) {
   const response = await fetch(`${base}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
   });
 
   const text = await response.text();
@@ -47,7 +47,9 @@ async function main() {
   }
 
   const produtoSemPersonalizacao = produtos.body.find((item) => Number(item.personalizavel) === 0) || produtos.body[0];
-  const produtoComPersonalizacao = produtos.body.find((item) => Number(item.personalizavel) === 1) || null;
+  const produtoComPersonalizacao = produtos.body.find((item) =>
+    Number(item.personalizavel) === 1 && Number(item.configurador?.ativo) === 1
+  ) || null;
 
   if (!produtoSemPersonalizacao) {
     throw new Error('Nenhum produto disponível para testar o fluxo');

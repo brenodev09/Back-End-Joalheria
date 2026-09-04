@@ -16,9 +16,9 @@ const transporter = process.env.SMTP_HOST &&
                 pass: senhaSmtp
             }
             : undefined,
-        connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 5000),
-        greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 5000),
-        socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 5000)
+        connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 15000),
+        greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 15000),
+        socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000)
     })
     : null
 
@@ -37,7 +37,7 @@ export async function enviarEmail({ para, assunto, texto }) {
         return false
     }
 
-    const timeoutMs = Number(process.env.SMTP_TIMEOUT_MS || 5000)
+    const timeoutMs = Number(process.env.SMTP_TIMEOUT_MS || 15000)
 
     try {
         await Promise.race([

@@ -58,7 +58,10 @@ router.get("/:id", autenticarToken, async (req, res) => {
 router.post("/", async (req, res) => {
 
     try {
-        const { nome, email, senha } = req.body
+        const corpo = req.body || {}
+        const nome = corpo.nome ?? corpo.name
+        const email = String(corpo.email ?? "").trim().toLowerCase()
+        const senha = corpo.senha ?? corpo.password
 
 
         if (!nome || !email || !senha) {
@@ -103,7 +106,9 @@ router.post("/", async (req, res) => {
 
 router.post("/login", async (req, res) =>{
     try{
-        const { email, senha} = req.body
+        const corpo = req.body || {}
+        const email = corpo.email
+        const senha = corpo.senha ?? corpo.password
 
         if(!email || !senha) {
             return res.status(400).json({
