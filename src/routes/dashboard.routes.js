@@ -663,4 +663,80 @@ router.get("/metas-mensais/atual", async (req, res) => {
     }
 })
 
+// ================================
+// AVALIAÇÕES DE PRODUTOS
+// ================================
+
+router.get("/avaliacoes-metricas", async (req, res) => {
+    try {
+
+        const [[resumoAvaliacoes]] = await db.query(`
+            SELECT
+                COUNT(*) AS total,
+                COALESCE(AVG(nota), 0) AS media
+            FROM avaliacoes_produtos
+        `)
+
+        const [[avaliacoesNegativas]] = await db.query(`
+            SELECT COUNT(*) AS total
+            FROM avaliacoes_produtos
+            WHERE nota <= 2
+        `)
+
+        const [distribuicao] = await db.query(`
+            SELECT nota, COUNT(*) AS quantidade
+            FROM avaliacoes_produtos
+            GROUP BY nota
+            ORDER BY nota ASC
+        `)
+
+        // garante que as 5 notas apareçam no gráfico, mesmo sem avaliações para alguma delas
+        const distribuicaoEstrelas = [1, 2, 3, 4, 5].map((nota) => {
+            const encontrado = distribuicao.find((item) => item.nota === nota)
+            return {
+                nota,
+                quantidade: encontrado ? Number(encontrado.quantidade) : 0
+            }
+        })
+
+        const [topProdutosAvaliados] = await db.query(`
+            SELECT
+                p.id,
+                p.nome,
+                p.imagem,
+                COUNT(ap.id) AS totalAvaliacoes,
+                AVG(ap.nota) AS mediaNotas
+            FROM produtos p
+            INNER JOIN avaliacoes_produtos ap
+                ON ap.produto_id = p.id
+            GROUP BY p.id, p.nome, p.imagem
+            ORDER BY mediaNotas DESC, totalAvaliacoes DESC
+            LIMIT 5
+        `)
+
+        return res.json({
+            mediaGeral: Number(Number(resumoAvaliacoes.media).toFixed(2)),
+            totalAvaliacoes: Number(resumoAvaliacoes.total),
+            avaliacoesNegativas: Number(avaliacoesNegativas.total),
+
+            distribuicaoEstrelas,
+
+            topProdutosAvaliados: topProdutosAvaliados.map((produto) => ({
+                id: produto.id,
+                nome: produto.nome,
+                imagem: produto.imagem,
+                totalAvaliacoes: Number(produto.totalAvaliacoes),
+                mediaNotas: Number(Number(produto.mediaNotas).toFixed(2))
+            }))
+        })
+
+    } catch (error) {
+        console.error(error)
+
+        return res.status(500).json({
+            erro: "Erro ao carregar métricas de avaliações"
+        })
+    }
+})
+
 export default router
